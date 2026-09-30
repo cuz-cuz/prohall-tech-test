@@ -3,11 +3,39 @@ const configuredBaseUrl =
 
 export const API_BASE_URL = configuredBaseUrl.replace(/\/$/, '')
 
-async function requestJson(path, { signal } = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, { signal })
+export class ApiError extends Error {
+  constructor(message, { status, data } = {}) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.data = data
+  }
+}
+
+async function requestJson(path, { signal, method = 'GET', body } = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    signal,
+    method,
+    credentials: 'include',
+    ...(body === undefined
+      ? {}
+      : {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+  })
 
   if (!response.ok) {
-    throw new Error('Não foi possível carregar os dados da loja.')
+    let data = null
+    try {
+      data = await response.json()
+    } catch {
+      // Respostas sem JSON recebem a mensagem segura abaixo.
+    }
+    throw new ApiError(
+      data?.message ?? 'Não foi possível concluir a solicitação.',
+      { status: response.status, data },
+    )
   }
 
   return response.json()
@@ -36,4 +64,12 @@ export function getListing(slug, options) {
 export function searchListings(query, page = 1, options) {
   const params = new URLSearchParams({ q: query, page: String(page) })
   return requestJson(`/listings/search/?${params.toString()}`, options)
+}
+
+export function checkoutOrder(payload, options = {}) {
+  return requestJson('/orders/checkout/', {
+    ...options,
+    method: 'POST',
+    body: payload,
+  })
 }

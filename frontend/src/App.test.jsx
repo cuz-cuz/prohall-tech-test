@@ -45,18 +45,43 @@ const searchPayload = {
 }
 
 function jsonResponse(data) {
-  return Promise.resolve({ ok: true, json: () => Promise.resolve(data) })
+  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) })
 }
 
-function mockSuccessfulApi() {
+function mockSuccessfulApi(checkoutPayload) {
   fetch.mockImplementation((url) => {
     if (url.includes('/storefront/home/')) return jsonResponse(homePayload)
     if (url.includes('/listings/search/')) return jsonResponse(searchPayload)
     if (url.includes('/menus/novidades/listings/')) return jsonResponse([product])
     if (url.includes('/listings/cafeteira/')) return jsonResponse(product)
     if (url.endsWith('/listings/')) return jsonResponse([product])
-    return Promise.resolve({ ok: false })
+    if (url.includes('/orders/checkout/') && checkoutPayload) {
+      return jsonResponse(checkoutPayload)
+    }
+    return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) })
   })
+}
+
+const approvedOrder = {
+  public_id: 'f7a59439-d694-42de-b03f-4e86ec3ebd61',
+  status: 'payment_approved',
+  payment_status: 'approved',
+  subtotal: '429.00',
+  total: '429.00',
+  payment_last_four: '4242',
+  customer: { name: 'Ana Lima', email: 'ana@example.com' },
+  items: [],
+  created_at: '2026-09-30T12:00:00Z',
+}
+
+function persistProductInCart() {
+  window.localStorage.setItem(
+    CART_STORAGE_KEY,
+    JSON.stringify({
+      version: CART_STORAGE_VERSION,
+      items: [{ ...product, quantity: 1 }],
+    }),
+  )
 }
 
 describe('Mosaico storefront', () => {
@@ -270,13 +295,7 @@ describe('Mosaico storefront', () => {
   })
 
   it('restores, updates and removes a persisted cart item', async () => {
-    window.localStorage.setItem(
-      CART_STORAGE_KEY,
-      JSON.stringify({
-        version: CART_STORAGE_VERSION,
-        items: [{ ...product, quantity: 1 }],
-      }),
-    )
+    persistProductInCart()
     mockSuccessfulApi()
 
     render(
@@ -300,5 +319,121 @@ describe('Mosaico storefront', () => {
     expect(
       screen.getByRole('heading', { name: /seu carrinho está vazio/i }),
     ).toBeInTheDocument()
+  })
+
+  it('submits only the simulated final digits and clears an approved cart', async () => {
+    persistProductInCart()
+    mockSuccessfulApi(approvedOrder)
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nome completo/i), {
+      target: { value: 'Ana Lima' },
+    })
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: 'ana@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /preencher aprovação/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }))
+
+    expect(
+      await screen.findByRole('heading', { name: /pagamento aprovado/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/R\$\s*429,00/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /carrinho com 0 itens/i })).toBeInTheDocument()
+
+    const checkoutCall = fetch.mock.calls.find(([url]) => url.includes('/orders/checkout/'))
+    const submitted = JSON.parse(checkoutCall[1].body)
+    expect(submitted.payment).toEqual({ card_last_four: '4242' })
+    expect(submitted).not.toHaveProperty('card_number')
+    expect(submitted.items).toEqual([
+      { listing_id: 1, quantity: 1, expected_unit_price: '429.00' },
+    ])
+    expect(submitted.idempotency_key).toMatch(/^[0-9a-f-]{36}$/i)
+  })
+
+  it('keeps the cart available after a declined payment', async () => {
+    persistProductInCart()
+    mockSuccessfulApi({
+      ...approvedOrder,
+      status: 'payment_declined',
+      payment_status: 'declined',
+      payment_last_four: '0000',
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nome completo/i), {
+      target: { value: 'Ana Lima' },
+    })
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: 'ana@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /preencher recusa/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }))
+
+    expect(
+      await screen.findByRole('heading', { name: /pagamento recusado/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/nenhum item foi retirado do estoque/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /carrinho com 1 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /tentar novamente/i })).toBeInTheDocument()
+  })
+
+  it('shows a useful checkout conflict and preserves the cart', async () => {
+    persistProductInCart()
+    fetch.mockImplementation((url) => {
+      if (url.includes('/storefront/home/')) return jsonResponse(homePayload)
+      if (url.includes('/orders/checkout/')) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: () => Promise.resolve({ code: 'price_changed', message: 'changed' }),
+        })
+      }
+      return jsonResponse([])
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nome completo/i), {
+      target: { value: 'Ana Lima' },
+    })
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: 'ana@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /preencher aprovação/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmar pedido/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/preço de um produto mudou/i)
+    expect(screen.getByRole('link', { name: /carrinho com 1 item/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /confirmar pedido/i })).toBeEnabled()
+  })
+
+  it('handles direct access to the result route without exposing stale data', () => {
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/checkout/resultado']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByRole('heading', { name: /nenhum pedido recente nesta tela/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /ir para o carrinho/i })).toBeInTheDocument()
   })
 })

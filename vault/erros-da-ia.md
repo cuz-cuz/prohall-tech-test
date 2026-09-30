@@ -159,3 +159,17 @@ O setup do Vitest passou a instalar uma implementação em memória da API Web S
 ### Regra preventiva
 
 Testes que dependem de armazenamento do navegador devem fornecer uma implementação determinística no setup e não depender das APIs experimentais expostas pela versão local do Node.
+
+## 30 de setembro de 2026 — Contexto de patch com codificação exibida incorretamente
+
+### Erro
+
+Uma alteração extensa tentou localizar no frontend textos acentuados usando a representação corrompida exibida anteriormente pelo terminal. O patch não encontrou o contexto e foi recusado sem modificar arquivos.
+
+### Correção
+
+Os arquivos foram relidos explicitamente como UTF-8 e a alteração foi dividida em patches menores com o texto real.
+
+### Regra preventiva
+
+Quando a saída do terminal mostrar mojibake, reler com codificação UTF-8 antes de usar texto acentuado como contexto de patch; preferir contextos estruturais curtos.

@@ -19,6 +19,8 @@
   --color-primary-soft: oklch(0.94 0.035 282);
   --color-promotion: oklch(0.58 0.21 15);
   --color-success: oklch(0.52 0.13 158);
+  --color-danger: oklch(0.5 0.18 25);
+  --color-danger-soft: oklch(0.96 0.025 25);
   --color-unavailable: oklch(0.55 0.025 270);
 
   --space-2xs: 0.25rem;

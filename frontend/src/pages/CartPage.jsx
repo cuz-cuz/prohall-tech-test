@@ -114,6 +114,9 @@ export function CartPage() {
           <p>
             Preços, disponibilidade e estoque serão confirmados antes do pagamento.
           </p>
+          <Link className="button button--primary" to="/checkout">
+            Ir para o checkout
+          </Link>
           <Link className="button button--secondary" to="/">
             Continuar explorando
           </Link>

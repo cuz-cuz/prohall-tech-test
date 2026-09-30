@@ -1148,6 +1148,8 @@ Tarefas:
 
 Critério de conclusão: pagamento aprovado reduz estoque e recusado não reduz; valores permanecem exatos.
 
+Status em 30 de setembro de 2026: **concluída**. O cadastro comercial mínimo do cliente foi criado para vincular o pedido; autenticação, sessão e acesso posterior permanecem corretamente reservados à Fase 8.
+
 Modelo recomendado: **GPT-5.6 Sol — High**.
 
 ### Fase 8 — Cliente e Meus pedidos

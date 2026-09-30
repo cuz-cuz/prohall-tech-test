@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fase 6 — vitrine responsiva com busca e carrinho persistente. Checkout e pagamento simulado serão construídos na Fase 7.
+> Estado atual: Fase 7 concluída — checkout transacional, pedidos com snapshots e pagamento simulado. Conta autenticada e “Meus pedidos” entram na Fase 8.
 
 ## Requisitos
 
@@ -65,7 +65,10 @@ Endpoints públicos disponíveis:
 - `GET /api/menus/{slug}/listings/`;
 - `GET /api/listings/`;
 - `GET /api/listings/search/?q={termo}&page={pagina}`;
-- `GET /api/listings/{slug}/`.
+- `GET /api/listings/{slug}/`;
+- `POST /api/orders/checkout/`.
+
+O checkout recebe nome, e-mail, itens, preços esperados, uma chave UUID de idempotência e somente os quatro dígitos fictícios usados na simulação. Nunca informe um cartão real: `0000` simula recusa e qualquer outro final de quatro dígitos simula aprovação. Preços e estoque são confirmados novamente pelo backend; somente pedidos aprovados reduzem o estoque.
 
 ### Frontend
 
@@ -84,9 +87,11 @@ Rotas públicas da interface:
 - `/menu/{slug}` — anúncios organizados pelo menu;
 - `/busca?q={termo}` — resultados paginados e ordenados por relevância;
 - `/carrinho` — itens selecionados, quantidades e subtotal estimado;
+- `/checkout` — identificação e pagamento simulado;
+- `/checkout/resultado` — confirmação de aprovação ou recusa;
 - `/produto/{slug}` — galeria e detalhes comerciais do anúncio.
 
-O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). O checkout entra na fase seguinte e, por isso, ainda não aparece como controle inativo na navegação. O carrinho persiste no navegador, mas preços, atividade e estoque serão recalculados pelo backend antes do pagamento.
+O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). O carrinho persiste no navegador, mas o backend recalcula preços, atividade e estoque dentro da transação do checkout. A conta autenticada e o acesso posterior ao histórico serão adicionados na Fase 8; nesta fase, o cadastro comercial do cliente já fica associado ao pedido.
 
 ## Execução com Docker
 
@@ -99,9 +104,7 @@ O arquivo foi preparado na Fase 1, mas ainda precisa ser validado em uma máquin
 ## Testes e verificações
 
 ```powershell
-.\.venv\Scripts\python.exe .\backend\manage.py test apps.core
-.\.venv\Scripts\python.exe .\backend\manage.py test apps.catalog
-.\.venv\Scripts\python.exe .\backend\manage.py test apps.storefront
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.core apps.catalog apps.storefront apps.customers apps.orders
 Set-Location .\frontend
 npm test
 npm run lint

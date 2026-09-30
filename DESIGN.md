@@ -43,6 +43,8 @@ A profundidade é discreta e funcional. Superfícies usam borda clara e sombra b
 - Menu tile: número ordinal, nome e chamada curta para descoberta.
 - Detalhe: galeria, preço normal/promocional, estoque, descrição e retorno à vitrine.
 - Carrinho: lista linear de produtos, controle de quantidade, remoção explícita e resumo estimado separado.
+- Checkout: formulário em etapas visuais simples, identificação, aviso explícito de simulação, atalhos de teste e resumo fixo no desktop.
+- Resultado do pagamento: estado inequívoco de aprovação ou recusa, recibo essencial e próxima ação contextual.
 - State panel: variantes de carregamento, vazio e erro com ação contextual quando aplicável.
 - Esqueleto: reservado ao carregamento e desativado visualmente com `prefers-reduced-motion`.
 
@@ -53,6 +55,6 @@ A profundidade é discreta e funcional. Superfícies usam borda clara e sombra b
 - Use imagens reais de ambientes e produtos em uso nos banners administráveis.
 - Preserve foco visível, texto alternativo e navegação por teclado.
 - Não invente frete, prazo, parcelamento, desconto ou estoque.
-- Não adicione checkout como controle inativo.
+- Não solicite dados reais de cartão; o checkout aceita somente quatro dígitos fictícios.
 - Não use gradientes, glassmorphism, sombras pesadas ou arredondamento excessivo.
 - Não replique a interface de referências externas; use apenas seus princípios de clareza e organização.

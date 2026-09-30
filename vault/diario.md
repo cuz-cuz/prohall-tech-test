@@ -250,3 +250,51 @@
 - conferir manualmente adição, recarga, atualização e remoção em celular e desktop;
 - antes da Fase 7, trocar para GPT-5.6 Sol — High;
 - implementar checkout transacional, cliente, pedido e pagamento simulado.
+
+## 30 de setembro de 2026 — Fase 7
+
+### Feito
+
+- criados os modelos `Customer`, `Order` e `OrderItem`, com e-mail normalizado, UUID público e constraints monetárias;
+- adicionadas migrations iniciais de clientes e pedidos;
+- implementado checkout atômico com bloqueio determinístico dos anúncios por `select_for_update`;
+- preços, atividade e estoque são revalidados no backend antes da criação do pedido;
+- subtotais e total são calculados com `Decimal`, sem confiar no total informado pelo navegador;
+- itens guardam snapshots de título, produto externo, SKU, preço, quantidade, subtotal e imagem;
+- criada idempotência por UUID e impressão digital do payload, inclusive para concorrência e reenvio;
+- implementada a regra simulada: final `0000` recusa e qualquer outro final de quatro dígitos aprova;
+- pedidos recusados são registrados sem reduzir estoque; pedidos aprovados atualizam o estoque na mesma transação;
+- a API rejeita campos desconhecidos e nunca aceita nem armazena número completo de cartão;
+- criado Admin de pedidos somente leitura, com itens inline;
+- criada rota `POST /api/orders/checkout/` e respostas de conflito para preço, estoque, anúncio e idempotência;
+- criado checkout responsivo com dados do cliente, aviso explícito, códigos fictícios, resumo e bloqueio durante envio;
+- criadas telas de resultado para aprovação, recusa e acesso direto sem estado;
+- o carrinho é limpo somente após aprovação e preservado após recusa ou erro;
+- criado o cadastro comercial mínimo do cliente para associação ao pedido; usuário Django, sessão e “Meus pedidos” permanecem na Fase 8.
+
+### Validado
+
+- 50 testes backend aprovados em SQLite, sendo 11 cenários específicos do checkout;
+- aprovação, recusa, estoque insuficiente, preço alterado, anúncio indisponível, snapshots e normalização do cliente cobertos;
+- repetição da mesma chave retorna o mesmo pedido e não reduz estoque novamente;
+- chave reutilizada com outro payload retorna conflito;
+- payload com número completo de cartão é rejeitado;
+- 19 testes frontend aprovados, incluindo aprovação, recusa, conflito e acesso direto ao resultado;
+- Django check e `makemigrations --check` sem erros ou mudanças pendentes;
+- lint e build de produção do frontend aprovados;
+- auditoria mecânica do sistema visual sem ocorrências;
+- `git diff --check` sem erros.
+
+### Limitações do ambiente
+
+- SQLite ignora `select_for_update`; o bloqueio real e a concorrência ainda precisam ser validados no PostgreSQL do Docker/Railway;
+- as migrations de clientes e pedidos ainda não foram aplicadas no PostgreSQL deste computador porque as credenciais locais não autenticaram;
+- inspeção visual em navegador controlável continua indisponível nesta sessão;
+- login, sessão segura e consulta de pedidos pertencem à Fase 8 e ainda não foram antecipados.
+
+### Próximo
+
+- em casa, aplicar as migrations e executar a suíte completa contra PostgreSQL;
+- testar dois checkouts concorrentes sobre o mesmo estoque no PostgreSQL;
+- antes da Fase 8, manter ou selecionar GPT-5.6 Sol — High;
+- implementar conta automática, sessão segura, “Meus pedidos” e proteção contra acesso cruzado.
