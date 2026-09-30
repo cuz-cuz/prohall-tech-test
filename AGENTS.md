@@ -72,6 +72,8 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 .\.venv\Scripts\python.exe -m pip install -r .\backend\requirements.txt
 .\.venv\Scripts\python.exe .\backend\manage.py check
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.core
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.catalog
+.\.venv\Scripts\python.exe .\backend\manage.py import_products
 .\.venv\Scripts\python.exe .\backend\manage.py runserver
 ```
 

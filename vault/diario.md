@@ -66,3 +66,40 @@
 - configurar uma `DATABASE_URL` local válida ou validar o Compose em casa;
 - antes da Fase 2, trocar para GPT-5.6 Sol — High;
 - implementar somente produtos importados e sincronização na Fase 2.
+
+## 30 de setembro de 2026 — Fase 2
+
+### Feito
+
+- criado o modelo `ImportedProduct` com identificador externo único;
+- adicionadas constraints de preço e desconto;
+- criada e versionada a migration inicial do catálogo;
+- configurado Admin somente leitura para produtos externos;
+- criado cliente HTTP com timeout, paginação e validação de contrato;
+- implementada detecção de IDs duplicados e paginação inconsistente;
+- criada normalização segura de dinheiro, estoque e textos;
+- implementada importação atômica e idempotente com `update_or_create`;
+- criado o comando `python manage.py import_products`;
+- adicionados testes unitários e testes de persistência;
+- documentada a decisão da importação atômica.
+
+### Validado
+
+- Django check sem erros;
+- migration consistente com os models;
+- 16 testes sem banco aprovados, incluindo paginação, normalização e Admin;
+- API real retornou 194 produtos;
+- os 194 produtos reais foram normalizados sem erro;
+- nenhum dado externo foi gravado durante a validação sem banco.
+
+### Limitações do ambiente
+
+- os 2 testes de persistência/idempotência exigem um PostgreSQL acessível;
+- migrations e comando real de importação ainda não foram executados no banco local por falta de credenciais;
+- a validação completa deve ser feita com `docker compose up --build` em casa.
+
+### Próximo
+
+- validar migrations, 15 testes do catálogo (18 no total) e duas importações consecutivas no Docker;
+- confirmar que a contagem permanece 194 após a segunda importação;
+- iniciar a Fase 3 apenas depois dessa confirmação.

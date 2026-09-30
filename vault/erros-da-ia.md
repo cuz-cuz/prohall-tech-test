@@ -71,3 +71,21 @@ O script de teste foi tornado determinístico com pool de threads e um único wo
 ### Regra preventiva
 
 Em runtimes Node não LTS, validar explicitamente o runner de testes e fixar a configuração estável no script do projeto.
+
+## 30 de setembro de 2026 — Escape de comando no PowerShell
+
+### Erro
+
+Duas tentativas de validar o catálogo com `manage.py shell -c` falharam porque aspas aninhadas no código Python foram reinterpretadas pelo PowerShell.
+
+### Como foi percebido
+
+O Django recebeu partes do código como argumentos separados e encerrou com erro de uso, sem executar a validação.
+
+### Correção
+
+O mesmo código foi enviado ao Python pela entrada padrão usando um here-string do PowerShell, sem construir uma cadeia de aspas aninhadas.
+
+### Regra preventiva
+
+Para scripts Python de múltiplas instruções no PowerShell, preferir entrada padrão ou arquivo versionado; evitar `-c` quando o código também contém índices, strings e interpolação.

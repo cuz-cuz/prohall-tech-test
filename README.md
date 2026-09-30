@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fase 1 — bootstrap da aplicação. Catálogo, busca, carrinho e checkout serão implementados nas fases seguintes.
+> Estado atual: Fase 2 — modelo de produtos e importação do DummyJSON. Anúncios, busca, carrinho e checkout serão implementados nas fases seguintes.
 
 ## Requisitos
 
@@ -30,6 +30,16 @@ Edite `backend/.env` e informe uma `DATABASE_URL` válida para o seu PostgreSQL 
 
 Healthcheck: <http://localhost:8000/api/health/>
 
+### Importação de produtos
+
+Com o PostgreSQL configurado e as migrations aplicadas:
+
+```powershell
+.\.venv\Scripts\python.exe .\backend\manage.py import_products
+```
+
+O comando percorre todas as páginas do DummyJSON e pode ser executado novamente. Produtos existentes são atualizados pelo identificador externo, sem duplicação.
+
 ### Frontend
 
 ```powershell
@@ -53,6 +63,7 @@ O arquivo foi preparado na Fase 1, mas ainda precisa ser validado em uma máquin
 
 ```powershell
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.core
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.catalog
 Set-Location .\frontend
 npm test
 npm run lint
@@ -65,4 +76,4 @@ npm run build
 - [Contrato do DummyJSON](docs/api-dummyjson.md)
 - [Memória do projeto](vault/diario.md)
 
-As credenciais administrativas de demonstração e as instruções completas de importação serão adicionadas nas fases correspondentes.
+As credenciais administrativas de demonstração serão adicionadas na fase correspondente.

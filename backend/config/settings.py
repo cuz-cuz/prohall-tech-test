@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "apps.core.apps.CoreConfig",
+    "apps.catalog.apps.CatalogConfig",
 ]
 
 MIDDLEWARE = [
@@ -132,3 +133,8 @@ REST_FRAMEWORK = {
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
 }
+
+
+DUMMYJSON_BASE_URL = os.getenv("DUMMYJSON_BASE_URL", "https://dummyjson.com")
+DUMMYJSON_TIMEOUT_SECONDS = float(os.getenv("DUMMYJSON_TIMEOUT_SECONDS", "20"))
+DUMMYJSON_PAGE_SIZE = int(os.getenv("DUMMYJSON_PAGE_SIZE", "50"))
