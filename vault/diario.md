@@ -141,3 +141,39 @@
 - em casa, executar migrations, importar produtos duas vezes, rodar `seed_demo` e executar a suíte completa no Docker;
 - antes da Fase 4, selecionar GPT-5.6 Sol — Medium;
 - construir a estrutura visual responsiva sem antecipar busca, carrinho ou checkout.
+
+## 30 de setembro de 2026 — Fase 4
+
+### Feito
+
+- definido o sistema visual “A Vitrine Clara” e documentados tokens, componentes e regras em `DESIGN.md`;
+- criada estrutura pública responsiva com cabeçalho, navegação por menus e rodapé;
+- criada Home com banners administráveis, benefícios verificáveis, anúncios e menus;
+- criadas páginas de menu, detalhe de produto e rota não encontrada;
+- implementados cards com preço normal/promocional, estoque, categoria e imagem resiliente;
+- implementados estados de carregamento, sucesso, vazio e erro para chamadas assíncronas;
+- adicionados foco visível, skip link, hierarquia de títulos, textos alternativos, lazy loading e redução de movimento;
+- busca, carrinho e checkout foram deliberadamente omitidos até suas fases funcionais, evitando controles inativos.
+
+### Validado
+
+- 5 testes do frontend aprovados;
+- lint do frontend aprovado sem alertas;
+- build de produção do frontend aprovado;
+- auditoria mecânica do sistema visual sem ocorrências;
+- integração local respondeu com 2 banners, 4 menus e 24 anúncios ativos;
+- endpoints de Home, menu, listagens e detalhe responderam com os dados importados;
+- servidor do frontend respondeu HTTP 200.
+
+### Limitações do ambiente
+
+- a inspeção visual automatizada em navegador não pôde ser executada porque esta sessão não disponibilizou nenhum navegador controlável;
+- SQLite foi usado somente para a prévia integrada da interface; PostgreSQL continua obrigatório e pendente de validação completa no Docker;
+- o Compose continua sem validação neste computador.
+
+### Próximo
+
+- conferir visualmente a interface no navegador em celular e desktop quando houver navegador disponível;
+- em casa, concluir a validação pendente com PostgreSQL e Docker;
+- antes da Fase 5, trocar para GPT-5.6 Sol — High;
+- implementar busca com `unaccent`, `pg_trgm`, ranking e debounce.

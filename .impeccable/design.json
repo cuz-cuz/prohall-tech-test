@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "designFile": "DESIGN.md",
+  "generatedAt": "2026-09-30T15:17:46-03:00",
+  "northStar": "A Vitrine Clara",
+  "tokens": {
+    "primary": "#5146E5",
+    "background": "#F8F9FC",
+    "surface": "#FFFFFF",
+    "text": "#11152F",
+    "textSoft": "#51566B",
+    "promotion": "#D92D55",
+    "success": "#137A52"
+  }
+}

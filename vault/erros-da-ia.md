@@ -117,3 +117,31 @@ O primeiro teste de renderização do Django Admin usou o storage de arquivos es
 ### Correção e prevenção
 
 O teste de integração passou a sobrescrever somente o storage estático com `StaticFilesStorage`. Testes que renderizam templates não devem depender de artefatos de deploy; a configuração de produção continua sendo validada separadamente pelo `collectstatic` e pelo deploy.
+
+## 30 de setembro de 2026 — Variável reservada do PowerShell
+
+### Erro
+
+Um script de diagnóstico tentou armazenar a resposta da Home em `$home`. Como nomes de variáveis do PowerShell não diferenciam maiúsculas de minúsculas, isso tentou sobrescrever a variável automática somente leitura `$HOME` e interrompeu parte da checagem.
+
+### Correção
+
+O diagnóstico foi repetido com nomes específicos (`$storefrontData`, `$listingData` e `$menuSlugValue`) e todas as respostas esperadas foram confirmadas.
+
+### Regra preventiva
+
+Não reutilizar nomes de variáveis automáticas ou opções comuns do sistema em scripts PowerShell; adotar prefixos específicos da tarefa para toda variável temporária.
+
+## 30 de setembro de 2026 — Operador incompatível com Windows PowerShell
+
+### Erro
+
+Uma verificação final usou `||`, operador disponível no PowerShell moderno, mas não no Windows PowerShell desta máquina. O parser recusou o comando antes de executar qualquer checagem.
+
+### Correção
+
+As buscas foram repetidas como instruções independentes separadas por `;`, compatíveis com a versão instalada.
+
+### Regra preventiva
+
+Neste ambiente, escrever comandos compatíveis com Windows PowerShell 5.1 e não usar `&&` ou `||` para encadear verificações.

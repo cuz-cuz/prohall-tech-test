@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fase 3 — produtos importados, anúncios, menus, banners, Django Admin e endpoints públicos básicos. A interface da loja será construída na Fase 4.
+> Estado atual: Fase 4 — vitrine pública responsiva com Home, menus, cards, detalhes de produto e estados de carregamento, vazio e erro. A busca será construída na Fase 5.
 
 ## Requisitos
 
@@ -77,6 +77,14 @@ npm run dev
 
 Aplicação: <http://localhost:5173/>
 
+Rotas públicas da interface:
+
+- `/` — Home com banners, benefícios, produtos e menus;
+- `/menu/{slug}` — anúncios organizados pelo menu;
+- `/produto/{slug}` — galeria e detalhes comerciais do anúncio.
+
+O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). Busca, carrinho e checkout entram nas fases seguintes e, por isso, ainda não aparecem como controles inativos na navegação.
+
 ## Execução com Docker
 
 ```bash
@@ -101,6 +109,7 @@ npm run build
 
 - [Plano de implementação](docs/plano_implementacao_prohall.md)
 - [Contrato do DummyJSON](docs/api-dummyjson.md)
+- [Sistema visual](DESIGN.md)
 - [Memória do projeto](vault/diario.md)
 
 As credenciais administrativas de demonstração serão adicionadas na fase correspondente.
