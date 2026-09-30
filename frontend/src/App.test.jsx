@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
+import { CART_STORAGE_KEY, CART_STORAGE_VERSION } from './cart/cartReducer'
 
 const homePayload = {
   banners: [
@@ -61,6 +62,7 @@ function mockSuccessfulApi() {
 describe('Mosaico storefront', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    window.localStorage.clear()
   })
 
   afterEach(() => {
@@ -242,5 +244,61 @@ describe('Mosaico storefront', () => {
         url.includes('/listings/search/?q=cafeteira&page=1'),
       ),
     ).toBe(true)
+  })
+
+  it('adds a product to the cart and updates its header count', async () => {
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/produto/cafeteira']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const addButton = await screen.findByRole('button', {
+      name: /adicionar ao carrinho/i,
+    })
+    fireEvent.click(addButton)
+
+    expect(
+      screen.getByRole('link', { name: /carrinho com 1 item/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(/cafeteira espresso adicionado/i)
+    expect(
+      JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY)).items[0].quantity,
+    ).toBe(1)
+  })
+
+  it('restores, updates and removes a persisted cart item', async () => {
+    window.localStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify({
+        version: CART_STORAGE_VERSION,
+        items: [{ ...product, quantity: 1 }],
+      }),
+    )
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/carrinho']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByRole('heading', { name: /revise seus produtos/i }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText(/R\$\s*429,00/)).toHaveLength(3)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /aumentar quantidade de cafeteira/i }),
+    )
+    expect(screen.getByText(/2 itens selecionados/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/R\$\s*858,00/)).toHaveLength(2)
+
+    fireEvent.click(screen.getByRole('button', { name: /^remover$/i }))
+    expect(
+      screen.getByRole('heading', { name: /seu carrinho está vazio/i }),
+    ).toBeInTheDocument()
   })
 })

@@ -215,3 +215,38 @@
 - em casa, aplicar a migration `0003`, confirmar as extensões e inspecionar a consulta com `EXPLAIN ANALYZE`;
 - antes da Fase 6, trocar para GPT-5.6 Sol — Medium;
 - implementar carrinho com Context API, reducer e persistência em `localStorage`.
+
+## 30 de setembro de 2026 — Fase 6
+
+### Feito
+
+- criado carrinho global com Context API e reducer puro;
+- implementadas ações de adicionar, incrementar, diminuir, remover e limpar;
+- produtos duplicados são consolidados pelo identificador do anúncio;
+- quantidades são limitadas ao estoque conhecido e produtos indisponíveis não são adicionados;
+- persistência versionada em `localStorage` com restauração e descarte seguro de dados corrompidos;
+- subtotal calculado em centavos inteiros, evitando acumulação de erro de ponto flutuante;
+- adicionado contador acessível no cabeçalho e ação funcional no detalhe do produto;
+- criada rota `/carrinho` com estado vazio, lista de produtos, preços promocionais, controles de quantidade e resumo estimado;
+- resumo informa que preço, atividade e estoque serão confirmados pelo backend;
+- checkout não foi antecipado e nenhum botão inativo foi incluído.
+
+### Validado
+
+- 15 testes frontend aprovados;
+- testes cobrem reducer, deduplicação, limite de estoque, dados inválidos, restauração, subtotal exato, adição, atualização e remoção;
+- lint do frontend aprovado sem alertas;
+- build de produção do frontend aprovado;
+- auditoria mecânica do sistema visual sem ocorrências.
+
+### Limitações do ambiente
+
+- o carrinho mantém um snapshot local apenas para estimativa; a validação definitiva pertence ao checkout da Fase 7;
+- a inspeção visual automatizada permaneceu indisponível porque esta sessão não ofereceu navegador controlável;
+- PostgreSQL/Docker e a migration de busca da Fase 5 continuam pendentes de validação em casa.
+
+### Próximo
+
+- conferir manualmente adição, recarga, atualização e remoção em celular e desktop;
+- antes da Fase 7, trocar para GPT-5.6 Sol — High;
+- implementar checkout transacional, cliente, pedido e pagamento simulado.

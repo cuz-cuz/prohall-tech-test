@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { SmartImage } from '../components/SmartImage'
 import { StatePanel } from '../components/StatePanel'
+import { useCart } from '../cart/useCart'
 import { useApiResource } from '../hooks/useApiResource'
 import { getListing } from '../services/api'
 import { formatCurrency, formatCategory } from '../utils/formatters'
@@ -46,6 +47,24 @@ export function ProductDetailPage() {
   const loadListing = useCallback((options) => getListing(slug, options), [slug])
   const state = useApiResource(loadListing)
   const product = state.data
+  const { addItem, items } = useCart()
+  const [cartFeedback, setCartFeedback] = useState({ productId: null, message: '' })
+  const cartItem = product
+    ? items.find((item) => item.id === product.id)
+    : null
+  const atCartLimit = Boolean(
+    product && cartItem && cartItem.quantity >= product.stock_quantity,
+  )
+
+  function handleAddToCart() {
+    if (!product?.is_available || atCartLimit) return
+    addItem(product)
+    const nextQuantity = (cartItem?.quantity ?? 0) + 1
+    setCartFeedback({
+      productId: product.id,
+      message: `${product.title} adicionado. ${nextQuantity} ${nextQuantity === 1 ? 'unidade' : 'unidades'} no carrinho.`,
+    })
+  }
 
   return (
     <main id="conteudo-principal" className="page-container product-page">
@@ -104,6 +123,28 @@ export function ProductDetailPage() {
                     ? `${product.stock_quantity} unidade${product.stock_quantity === 1 ? '' : 's'} em estoque`
                     : 'Este item não pode ser comprado no momento.'}
                 </span>
+              </div>
+              <div className="add-to-cart">
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={!product.is_available || atCartLimit}
+                >
+                  {!product.is_available
+                    ? 'Produto indisponível'
+                    : atCartLimit
+                      ? 'Quantidade máxima no carrinho'
+                      : 'Adicionar ao carrinho'}
+                </button>
+                {cartItem ? (
+                  <Link to="/carrinho">
+                    Ver carrinho ({cartItem.quantity})
+                  </Link>
+                ) : null}
+                <p className="add-to-cart__status" role="status" aria-live="polite">
+                  {cartFeedback.productId === product.id ? cartFeedback.message : ''}
+                </p>
               </div>
               <div className="product-detail__description">
                 <h2>Sobre o produto</h2>

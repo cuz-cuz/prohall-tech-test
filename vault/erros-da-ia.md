@@ -145,3 +145,17 @@ As buscas foram repetidas como instruções independentes separadas por `;`, com
 ### Regra preventiva
 
 Neste ambiente, escrever comandos compatíveis com Windows PowerShell 5.1 e não usar `&&` ou `||` para encadear verificações.
+
+## 30 de setembro de 2026 — `localStorage` indisponível no JSDOM com Node 25
+
+### Erro
+
+Os primeiros testes do carrinho presumiram que `window.localStorage` teria a implementação completa do JSDOM. Neste runtime, o Node 25 expôs um storage experimental sem caminho válido e o método `clear` não estava disponível, interrompendo todos os testes de página antes da renderização.
+
+### Correção
+
+O setup do Vitest passou a instalar uma implementação em memória da API Web Storage, com `getItem`, `setItem`, `removeItem`, `clear`, `key` e `length`.
+
+### Regra preventiva
+
+Testes que dependem de armazenamento do navegador devem fornecer uma implementação determinística no setup e não depender das APIs experimentais expostas pela versão local do Node.

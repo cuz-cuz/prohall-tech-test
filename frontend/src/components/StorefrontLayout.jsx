@@ -1,11 +1,13 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 import { SearchForm } from './SearchForm'
+import { useCart } from '../cart/useCart'
 import { useApiResource } from '../hooks/useApiResource'
 import { getStorefrontHome } from '../services/api'
 
 export function StorefrontLayout() {
   const homeState = useApiResource(getStorefrontHome)
+  const { totalItems } = useCart()
   const menus = homeState.data?.menus ?? []
   const location = useLocation()
   const currentQuery =
@@ -29,7 +31,18 @@ export function StorefrontLayout() {
             Mosaico
           </Link>
           <SearchForm key={`${location.pathname}:${currentQuery}`} initialQuery={currentQuery} />
-          <p>Sua próxima descoberta</p>
+          <NavLink
+            className="cart-link"
+            to="/carrinho"
+            aria-label={
+              totalItems === 1
+                ? 'Carrinho com 1 item'
+                : `Carrinho com ${totalItems} itens`
+            }
+          >
+            Carrinho
+            <span aria-hidden="true">{totalItems}</span>
+          </NavLink>
         </div>
         <nav className="department-nav" aria-label="Departamentos">
           <div className="department-nav__track page-container">
