@@ -35,3 +35,39 @@ A Fase 1 foi interrompida antes de alterações e a Fase 0 passou a ser executad
 ### Regra preventiva
 
 Antes de iniciar qualquer fase, verificar se os critérios de conclusão de todas as fases anteriores estão atendidos ou se houve decisão explícita e registrada para ignorá-los.
+
+## 30 de setembro de 2026 — Versão do gerador Vite
+
+### Erro
+
+Foi usado `npm create vite@8.3.1`, assumindo que `create-vite` teria a mesma versão publicada do pacote `vite`.
+
+### Como foi percebido
+
+O npm respondeu que essa versão de `create-vite` não existia. O PowerShell tentou continuar os próximos comandos após a falha.
+
+### Correção
+
+O processo foi interrompido, o workspace foi inspecionado e nenhum artefato acidental permaneceu. A versão do pacote `create-vite` foi consultada separadamente e o scaffold foi refeito com `create-vite@9.2.1`.
+
+### Regra preventiva
+
+Consultar a versão do pacote que será realmente executado e usar `$ErrorActionPreference = 'Stop'` em sequências PowerShell que dependem do sucesso do comando anterior.
+
+## 30 de setembro de 2026 — Pool padrão do Vitest no Node 25
+
+### Erro
+
+A primeira execução combinada do Vitest não terminou no tempo esperado usando o pool padrão no Node 25.
+
+### Como foi percebido
+
+O processo exibiu apenas o início da suíte, enquanto uma execução isolada com um worker terminou normalmente.
+
+### Correção
+
+O script de teste foi tornado determinístico com pool de threads e um único worker.
+
+### Regra preventiva
+
+Em runtimes Node não LTS, validar explicitamente o runner de testes e fixar a configuração estável no script do projeto.

@@ -66,7 +66,35 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 
 ## Comandos
 
-Os comandos executáveis serão preenchidos durante a Fase 1. Não inventar comandos no README: só documentar o que tiver sido validado ou marcar claramente o que depende de Docker/produção.
+### Backend
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r .\backend\requirements.txt
+.\.venv\Scripts\python.exe .\backend\manage.py check
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.core
+.\.venv\Scripts\python.exe .\backend\manage.py runserver
+```
+
+O `runserver` e as migrations exigem uma `DATABASE_URL` PostgreSQL válida em `backend/.env`.
+
+### Frontend
+
+```powershell
+Set-Location .\frontend
+npm install
+npm test
+npm run lint
+npm run build
+npm run dev
+```
+
+### Docker
+
+```bash
+docker compose up --build
+```
+
+O Compose foi preparado, mas deve ser validado em uma máquina com Docker. Não documentar comandos adicionais como validados antes de executá-los.
 
 ## Definição de conclusão de uma tarefa
 
