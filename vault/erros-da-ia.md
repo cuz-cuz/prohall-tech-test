@@ -89,3 +89,31 @@ O mesmo código foi enviado ao Python pela entrada padrão usando um here-string
 ### Regra preventiva
 
 Para scripts Python de múltiplas instruções no PowerShell, preferir entrada padrão ou arquivo versionado; evitar `-c` quando o código também contém índices, strings e interpolação.
+
+## 30 de setembro de 2026 — Descoberta e isolamento de testes Django
+
+### Erro
+
+A primeira tentativa da suíte complementar executou `manage.py test` sem rótulos a partir da raiz do repositório e encontrou zero testes. Além disso, um teste unitário chamou `full_clean()` em `SimpleTestCase`, acionando validação de constraint que precisava de banco.
+
+### Como foi percebido
+
+O runner informou explicitamente `Ran 0 tests`, e o teste do banner falhou com `DatabaseOperationForbidden`.
+
+### Correção
+
+A suíte foi repetida com os apps `apps.core apps.catalog apps.storefront`, encontrando todos os testes. A validação isolada de link passou a chamar os validadores do campo, enquanto constraints ficaram nos testes com banco.
+
+### Regra preventiva
+
+Ao rodar testes Django fora da pasta `backend`, indicar os apps explicitamente e nunca contabilizar uma execução com zero testes. Em `SimpleTestCase`, testar validadores puros diretamente; reservar `full_clean()` com constraints para casos com banco.
+
+## 30 de setembro de 2026 — Storage de produção em teste do Admin
+
+### Erro
+
+O primeiro teste de renderização do Django Admin usou o storage de arquivos estáticos de produção e falhou por não haver manifesto de `collectstatic` no ambiente de testes.
+
+### Correção e prevenção
+
+O teste de integração passou a sobrescrever somente o storage estático com `StaticFilesStorage`. Testes que renderizam templates não devem depender de artefatos de deploy; a configuração de produção continua sendo validada separadamente pelo `collectstatic` e pelo deploy.

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "apps.core.apps.CoreConfig",
     "apps.catalog.apps.CatalogConfig",
+    "apps.storefront.apps.StorefrontConfig",
 ]
 
 MIDDLEWARE = [
@@ -138,3 +139,7 @@ REST_FRAMEWORK = {
 DUMMYJSON_BASE_URL = os.getenv("DUMMYJSON_BASE_URL", "https://dummyjson.com")
 DUMMYJSON_TIMEOUT_SECONDS = float(os.getenv("DUMMYJSON_TIMEOUT_SECONDS", "20"))
 DUMMYJSON_PAGE_SIZE = int(os.getenv("DUMMYJSON_PAGE_SIZE", "50"))
+
+DEMO_ADMIN_USERNAME = os.getenv("DEMO_ADMIN_USERNAME", "admin")
+DEMO_ADMIN_EMAIL = os.getenv("DEMO_ADMIN_EMAIL", "admin@mosaico.local")
+DEMO_ADMIN_PASSWORD = os.getenv("DEMO_ADMIN_PASSWORD", "")

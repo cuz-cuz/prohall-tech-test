@@ -103,3 +103,41 @@
 - validar migrations, 15 testes do catálogo (18 no total) e duas importações consecutivas no Docker;
 - confirmar que a contagem permanece 194 após a segunda importação;
 - iniciar a Fase 3 apenas depois dessa confirmação.
+
+## 30 de setembro de 2026 — Fase 3
+
+### Feito
+
+- avanço autorizado pelo responsável mesmo com a validação PostgreSQL/Docker da Fase 2 pendente;
+- criados `Listing`, `Menu`, `MenuListing` e `Banner` com ordenação e constraints;
+- mantida a separação entre dados importados e dados comerciais;
+- configurado Django Admin para anúncios, menus, banners e produtos externos somente leitura;
+- incluído atalho do produto importado para criação ou edição de anúncio;
+- adicionadas ações administrativas para ativar e desativar anúncios;
+- implementado `seed_demo` idempotente para anúncios, menus, vínculos, banners e administrador opcional;
+- implementados endpoints públicos de Home, menus, listagens e detalhes;
+- anúncios inativos foram excluídos da API e anúncios sem estoque permanecem visíveis como indisponíveis;
+- criada migration `0002` do catálogo;
+- README e variáveis de ambiente foram atualizados.
+
+### Validado
+
+- `python manage.py check` sem erros;
+- 21 testes sem banco aprovados;
+- 33 testes completos aprovados em SQLite em memória, incluindo migrations, constraints, Admin, comando de demonstração e endpoints;
+- `makemigrations --check` sem alterações pendentes;
+- `collectstatic` de produção gerou e pós-processou os arquivos do Django Admin sem erros;
+- nenhuma senha administrativa foi adicionada ao repositório.
+
+### Limitações do ambiente
+
+- a suíte completa ainda precisa ser executada em PostgreSQL;
+- o Compose continua sem validação neste computador;
+- a importação real e o `seed_demo` ainda precisam ser executados no banco Docker em casa;
+- SQLite foi usado somente como verificação complementar e não substitui PostgreSQL.
+
+### Próximo
+
+- em casa, executar migrations, importar produtos duas vezes, rodar `seed_demo` e executar a suíte completa no Docker;
+- antes da Fase 4, selecionar GPT-5.6 Sol — Medium;
+- construir a estrutura visual responsiva sem antecipar busca, carrinho ou checkout.

@@ -73,11 +73,14 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 .\.venv\Scripts\python.exe .\backend\manage.py check
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.core
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.catalog
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.storefront
 .\.venv\Scripts\python.exe .\backend\manage.py import_products
+.\.venv\Scripts\python.exe .\backend\manage.py seed_demo
 .\.venv\Scripts\python.exe .\backend\manage.py runserver
 ```
 
 O `runserver` e as migrations exigem uma `DATABASE_URL` PostgreSQL válida em `backend/.env`.
+Ao executar a suíte a partir da raiz, informe explicitamente os apps; `manage.py test` sem rótulos pode não descobri-los porque o diretório de trabalho não é `backend`.
 
 ### Frontend
 

@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fase 2 — modelo de produtos e importação do DummyJSON. Anúncios, busca, carrinho e checkout serão implementados nas fases seguintes.
+> Estado atual: Fase 3 — produtos importados, anúncios, menus, banners, Django Admin e endpoints públicos básicos. A interface da loja será construída na Fase 4.
 
 ## Requisitos
 
@@ -40,6 +40,32 @@ Com o PostgreSQL configurado e as migrations aplicadas:
 
 O comando percorre todas as páginas do DummyJSON e pode ser executado novamente. Produtos existentes são atualizados pelo identificador externo, sem duplicação.
 
+### Vitrine e administrador de demonstração
+
+Depois da importação, prepare anúncios, menus e banners idempotentes com:
+
+```powershell
+.\.venv\Scripts\python.exe .\backend\manage.py seed_demo
+```
+
+Para o comando também criar ou atualizar um administrador local, defina no `backend/.env`:
+
+```dotenv
+DEMO_ADMIN_USERNAME=admin
+DEMO_ADMIN_EMAIL=admin@mosaico.local
+DEMO_ADMIN_PASSWORD=escolha-uma-senha-local
+```
+
+Nenhuma senha administrativa é versionada. Sem `DEMO_ADMIN_PASSWORD`, os dados da vitrine são criados e a criação do usuário é ignorada. O Admin fica em <http://localhost:8000/admin/>.
+
+Endpoints públicos disponíveis:
+
+- `GET /api/storefront/home/`;
+- `GET /api/menus/`;
+- `GET /api/menus/{slug}/listings/`;
+- `GET /api/listings/`;
+- `GET /api/listings/{slug}/`.
+
 ### Frontend
 
 ```powershell
@@ -64,6 +90,7 @@ O arquivo foi preparado na Fase 1, mas ainda precisa ser validado em uma máquin
 ```powershell
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.core
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.catalog
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.storefront
 Set-Location .\frontend
 npm test
 npm run lint
