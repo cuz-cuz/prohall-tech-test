@@ -115,6 +115,37 @@ class StorefrontAPITests(APITestCase):
             display_order=0,
         )
 
+    def create_listing(
+        self,
+        *,
+        external_id,
+        slug,
+        title,
+        description="",
+        brand="",
+        category="general",
+        active=True,
+    ):
+        product = ImportedProduct.objects.create(
+            external_id=external_id,
+            title=title,
+            description=description,
+            category=category,
+            brand=brand,
+            source_price=Decimal("50.00"),
+            source_stock=5,
+            last_synced_at=timezone.now(),
+        )
+        return Listing.objects.create(
+            product=product,
+            slug=slug,
+            title=title,
+            description=description,
+            price=Decimal("49.90"),
+            stock_quantity=5,
+            active=active,
+        )
+
     def test_home_returns_only_visible_banners_and_active_menus(self):
         now = timezone.now()
         Banner.objects.create(
@@ -173,6 +204,106 @@ class StorefrontAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_search_requires_a_term_with_at_least_two_characters(self):
+        url = reverse("storefront:listing-search")
+
+        self.assertEqual(self.client.get(url).status_code, 400)
+        self.assertEqual(self.client.get(url, {"q": "a"}).status_code, 400)
+        self.assertEqual(self.client.get(url, {"q": "--"}).status_code, 400)
+
+    def test_search_ignores_accents_and_case_and_accepts_incomplete_terms(self):
+        listing = self.create_listing(
+            external_id=20,
+            slug="mascara-nutritiva",
+            title="Máscara Nutritiva",
+            description="Hidratação profunda para cabelos.",
+            brand="Prohall",
+            category="hair-care",
+        )
+        url = reverse("storefront:listing-search")
+
+        accent_response = self.client.get(url, {"q": "MASCARA"})
+        partial_response = self.client.get(url, {"q": "nutri"})
+
+        self.assertEqual(accent_response.status_code, 200)
+        self.assertEqual(accent_response.data["results"][0]["slug"], listing.slug)
+        self.assertEqual(partial_response.data["results"][0]["slug"], listing.slug)
+
+    def test_search_considers_brand_category_and_active_menu_name(self):
+        listing = self.create_listing(
+            external_id=21,
+            slug="produto-capilar",
+            title="Tratamento Essencial",
+            brand="Prohall Select",
+            category="hair-care",
+        )
+        menu = Menu.objects.create(name="Cabelos Cacheados", slug="cacheados")
+        MenuListing.objects.create(menu=menu, listing=listing)
+        url = reverse("storefront:listing-search")
+
+        for term in ("prohall", "hair ca", "cachead"):
+            with self.subTest(term=term):
+                response = self.client.get(url, {"q": term})
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(
+                    listing.slug,
+                    [item["slug"] for item in response.data["results"]],
+                )
+
+    def test_search_excludes_inactive_listings(self):
+        self.create_listing(
+            external_id=22,
+            slug="segredo-inativo",
+            title="Segredo Inativo",
+            active=False,
+        )
+
+        response = self.client.get(
+            reverse("storefront:listing-search"),
+            {"q": "segredo"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_search_ranks_title_above_description(self):
+        title_match = self.create_listing(
+            external_id=23,
+            slug="cafeteira-pratica",
+            title="Cafeteira Prática",
+        )
+        self.create_listing(
+            external_id=24,
+            slug="item-cozinha",
+            title="Item para Cozinha",
+            description="Compatível com cafeteira doméstica.",
+        )
+
+        response = self.client.get(
+            reverse("storefront:listing-search"),
+            {"q": "cafeteira"},
+        )
+
+        self.assertEqual(response.data["results"][0]["slug"], title_match.slug)
+
+    def test_search_results_are_paginated(self):
+        for position in range(13):
+            self.create_listing(
+                external_id=100 + position,
+                slug=f"colecao-{position}",
+                title=f"Coleção {position}",
+            )
+
+        response = self.client.get(
+            reverse("storefront:listing-search"),
+            {"q": "colecao"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 13)
+        self.assertEqual(len(response.data["results"]), 12)
+        self.assertIsNotNone(response.data["next"])
 
 
 class CatalogConstraintsTests(TestCase):

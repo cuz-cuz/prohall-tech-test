@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage'
 import { MenuPage } from './pages/MenuPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
+import { SearchPage } from './pages/SearchPage'
 import './App.css'
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="menu/:slug" element={<MenuPage />} />
         <Route path="produto/:slug" element={<ProductDetailPage />} />
+        <Route path="busca" element={<SearchPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

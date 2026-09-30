@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fase 4 — vitrine pública responsiva com Home, menus, cards, detalhes de produto e estados de carregamento, vazio e erro. A busca será construída na Fase 5.
+> Estado atual: Fase 5 — vitrine responsiva com busca paginada, tolerante a acentos, caixa e termos incompletos. O carrinho será construído na Fase 6.
 
 ## Requisitos
 
@@ -64,6 +64,7 @@ Endpoints públicos disponíveis:
 - `GET /api/menus/`;
 - `GET /api/menus/{slug}/listings/`;
 - `GET /api/listings/`;
+- `GET /api/listings/search/?q={termo}&page={pagina}`;
 - `GET /api/listings/{slug}/`.
 
 ### Frontend
@@ -81,9 +82,10 @@ Rotas públicas da interface:
 
 - `/` — Home com banners, benefícios, produtos e menus;
 - `/menu/{slug}` — anúncios organizados pelo menu;
+- `/busca?q={termo}` — resultados paginados e ordenados por relevância;
 - `/produto/{slug}` — galeria e detalhes comerciais do anúncio.
 
-O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). Busca, carrinho e checkout entram nas fases seguintes e, por isso, ainda não aparecem como controles inativos na navegação.
+O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). Carrinho e checkout entram nas fases seguintes e, por isso, ainda não aparecem como controles inativos na navegação.
 
 ## Execução com Docker
 

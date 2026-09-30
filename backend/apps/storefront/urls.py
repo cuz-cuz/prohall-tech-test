@@ -4,6 +4,7 @@ from .views import (
     HomeView,
     ListingDetailView,
     ListingListView,
+    ListingSearchView,
     MenuListView,
     MenuListingsView,
 )
@@ -20,6 +21,11 @@ urlpatterns = [
         name="menu-listings",
     ),
     path("listings/", ListingListView.as_view(), name="listing-list"),
+    path(
+        "listings/search/",
+        ListingSearchView.as_view(),
+        name="listing-search",
+    ),
     path(
         "listings/<slug:slug>/",
         ListingDetailView.as_view(),

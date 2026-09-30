@@ -1,11 +1,17 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 
+import { SearchForm } from './SearchForm'
 import { useApiResource } from '../hooks/useApiResource'
 import { getStorefrontHome } from '../services/api'
 
 export function StorefrontLayout() {
   const homeState = useApiResource(getStorefrontHome)
   const menus = homeState.data?.menus ?? []
+  const location = useLocation()
+  const currentQuery =
+    location.pathname === '/busca'
+      ? new URLSearchParams(location.search).get('q') ?? ''
+      : ''
 
   return (
     <div className="site-frame">
@@ -22,6 +28,7 @@ export function StorefrontLayout() {
             </span>
             Mosaico
           </Link>
+          <SearchForm key={`${location.pathname}:${currentQuery}`} initialQuery={currentQuery} />
           <p>Sua próxima descoberta</p>
         </div>
         <nav className="department-nav" aria-label="Departamentos">

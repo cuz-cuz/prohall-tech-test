@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export function useApiResource(loader) {
+export function useApiResource(loader, { enabled = true } = {}) {
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState({
     status: 'idle',
@@ -10,6 +10,15 @@ export function useApiResource(loader) {
 
   useEffect(() => {
     const controller = new AbortController()
+
+    if (!enabled) {
+      Promise.resolve().then(() => {
+        if (!controller.signal.aborted) {
+          setState({ status: 'idle', data: null, error: null })
+        }
+      })
+      return () => controller.abort()
+    }
 
     Promise.resolve().then(() => {
       if (!controller.signal.aborted) {
@@ -23,7 +32,9 @@ export function useApiResource(loader) {
 
     loader({ signal: controller.signal })
       .then((data) => {
-        setState({ status: 'success', data, error: null })
+        if (!controller.signal.aborted) {
+          setState({ status: 'success', data, error: null })
+        }
       })
       .catch((error) => {
         if (error.name !== 'AbortError') {
@@ -32,7 +43,7 @@ export function useApiResource(loader) {
       })
 
     return () => controller.abort()
-  }, [attempt, loader])
+  }, [attempt, enabled, loader])
 
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
 

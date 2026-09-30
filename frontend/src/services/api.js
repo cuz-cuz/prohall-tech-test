@@ -32,3 +32,8 @@ export function getMenuListings(slug, options) {
 export function getListing(slug, options) {
   return requestJson(`/listings/${encodeURIComponent(slug)}/`, options)
 }
+
+export function searchListings(query, page = 1, options) {
+  const params = new URLSearchParams({ q: query, page: String(page) })
+  return requestJson(`/listings/search/?${params.toString()}`, options)
+}

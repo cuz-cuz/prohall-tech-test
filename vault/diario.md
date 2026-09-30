@@ -177,3 +177,41 @@
 - em casa, concluir a validação pendente com PostgreSQL e Docker;
 - antes da Fase 5, trocar para GPT-5.6 Sol — High;
 - implementar busca com `unaccent`, `pg_trgm`, ranking e debounce.
+
+## 30 de setembro de 2026 — Fase 5
+
+### Feito
+
+- habilitadas as extensões PostgreSQL `unaccent` e `pg_trgm` por migration condicionada ao banco;
+- criada a função imutável `mosaico_normalize` para normalizar caixa, acentos e separadores;
+- criados índices GIN por trigramas para título, descrição, marca, categoria e nome de menu;
+- implementado ranking ponderado, priorizando título, marca, categoria, menus e descrição;
+- busca restrita a anúncios ativos e menus ativos;
+- endpoint paginado `GET /api/listings/search/?q=...&page=...` com validação de entrada;
+- fallback determinístico em Python para testes locais com SQLite, sem substituir o caminho PostgreSQL de produção;
+- adicionada busca global ao cabeçalho com debounce de 350 ms e cancelamento de requisições anteriores;
+- criada página `/busca` com URL compartilhável, paginação e estados inicial, carregando, vazio, erro e sucesso;
+- atualizado o sistema visual sem antecipar carrinho ou checkout.
+
+### Validado
+
+- Django check sem erros e nenhuma migration de modelo pendente;
+- 39 testes backend aprovados, incluindo acentos, caixa, termos incompletos, marca, categoria, menu, relevância, paginação e anúncios inativos;
+- 8 testes frontend aprovados, incluindo debounce, resultado e estado vazio;
+- lint e build de produção do frontend aprovados;
+- auditoria mecânica do sistema visual sem ocorrências;
+- consulta PostgreSQL compilada pelo ORM sem `GROUP BY` que impeça os filtros principais de permanecerem no `WHERE`;
+- integração local retornou 5 resultados reais para `beauty`, HTTP 200 na página de busca e HTTP 400 para termo inválido.
+
+### Limitações do ambiente
+
+- a criação real das extensões e índices GIN ainda precisa ser executada em PostgreSQL;
+- `EXPLAIN ANALYZE` e desempenho real dos índices dependem da validação no Docker/PostgreSQL em casa;
+- SQLite foi usado somente para testes complementares e prévia integrada;
+- a inspeção visual automatizada continuou indisponível porque esta sessão não ofereceu navegador controlável.
+
+### Próximo
+
+- em casa, aplicar a migration `0003`, confirmar as extensões e inspecionar a consulta com `EXPLAIN ANALYZE`;
+- antes da Fase 6, trocar para GPT-5.6 Sol — Medium;
+- implementar carrinho com Context API, reducer e persistência em `localStorage`.

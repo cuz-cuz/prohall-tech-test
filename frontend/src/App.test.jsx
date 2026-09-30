@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,6 +36,13 @@ const product = {
   is_available: true,
 }
 
+const searchPayload = {
+  count: 1,
+  next: null,
+  previous: null,
+  results: [product],
+}
+
 function jsonResponse(data) {
   return Promise.resolve({ ok: true, json: () => Promise.resolve(data) })
 }
@@ -43,6 +50,7 @@ function jsonResponse(data) {
 function mockSuccessfulApi() {
   fetch.mockImplementation((url) => {
     if (url.includes('/storefront/home/')) return jsonResponse(homePayload)
+    if (url.includes('/listings/search/')) return jsonResponse(searchPayload)
     if (url.includes('/menus/novidades/listings/')) return jsonResponse([product])
     if (url.includes('/listings/cafeteira/')) return jsonResponse(product)
     if (url.endsWith('/listings/')) return jsonResponse([product])
@@ -57,6 +65,7 @@ describe('Mosaico storefront', () => {
 
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -155,5 +164,83 @@ describe('Mosaico storefront', () => {
     expect(
       screen.getByRole('heading', { name: /esta página não faz parte da vitrine/i }),
     ).toBeInTheDocument()
+  })
+
+  it('renders paginated search results from the URL', async () => {
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/busca?q=Cafeteira']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: /resultados para.*cafeteira/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/1 produto encontrado/i)).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', {
+        level: 3,
+        name: /cafeteira espresso/i,
+      }),
+    ).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/listings/search/?q=Cafeteira&page=1'),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
+  it('shows an instructive empty search state', async () => {
+    mockSuccessfulApi()
+    fetch.mockImplementation((url) => {
+      if (url.includes('/storefront/home/')) return jsonResponse(homePayload)
+      if (url.includes('/listings/search/')) {
+        return jsonResponse({ count: 0, next: null, previous: null, results: [] })
+      }
+      return jsonResponse([])
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/busca?q=inexistente']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: /nenhum produto encontrado/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/tente um termo mais curto/i)).toBeInTheDocument()
+  })
+
+  it('waits before searching while the customer types', async () => {
+    vi.useFakeTimers()
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByRole('searchbox', { name: /buscar produtos/i }), {
+      target: { value: 'cafeteira' },
+    })
+
+    expect(
+      fetch.mock.calls.some(([url]) => url.includes('/listings/search/')),
+    ).toBe(false)
+
+    await act(async () => {
+      vi.advanceTimersByTime(350)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(
+      fetch.mock.calls.some(([url]) =>
+        url.includes('/listings/search/?q=cafeteira&page=1'),
+      ),
+    ).toBe(true)
   })
 })

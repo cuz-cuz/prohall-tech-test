@@ -36,6 +36,7 @@ A profundidade é discreta e funcional. Superfícies usam borda clara e sombra b
 # Components
 
 - Cabeçalho: marca em fundo escuro, mensagem curta e navegação horizontal por departamentos.
+- Busca global: campo com label acessível, debounce curto, limpeza explícita e página de resultados compartilhável.
 - Hero: texto e imagem administráveis; apenas o primeiro banner contém o `h1` da página.
 - Benefícios: três afirmações verificáveis, sem promessas logísticas inexistentes.
 - Card de produto: imagem, marca/categoria, título, preços, estoque e link de detalhe.
@@ -51,6 +52,6 @@ A profundidade é discreta e funcional. Superfícies usam borda clara e sombra b
 - Use imagens reais de ambientes e produtos em uso nos banners administráveis.
 - Preserve foco visível, texto alternativo e navegação por teclado.
 - Não invente frete, prazo, parcelamento, desconto ou estoque.
-- Não adicione busca, carrinho ou checkout como controles inativos.
+- Não adicione carrinho ou checkout como controles inativos.
 - Não use gradientes, glassmorphism, sombras pesadas ou arredondamento excessivo.
 - Não replique a interface de referências externas; use apenas seus princípios de clareza e organização.

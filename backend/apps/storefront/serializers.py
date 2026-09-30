@@ -2,6 +2,23 @@ from rest_framework import serializers
 
 from apps.catalog.models import Banner, Listing, Menu
 
+from .search import normalize_search_term
+
+
+class SearchQuerySerializer(serializers.Serializer):
+    q = serializers.CharField(
+        min_length=2,
+        max_length=100,
+        trim_whitespace=True,
+    )
+
+    def validate_q(self, value):
+        if len(normalize_search_term(value)) < 2:
+            raise serializers.ValidationError(
+                "Informe ao menos dois caracteres pesquisáveis."
+            )
+        return value
+
 
 class ListingSerializer(serializers.ModelSerializer):
     effective_price = serializers.DecimalField(
