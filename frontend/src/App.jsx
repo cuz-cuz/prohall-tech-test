@@ -24,6 +24,7 @@ import { AdminListingsPage } from './admin/AdminListingsPage'
 import { AdminMenusPage } from './admin/AdminMenusPage'
 import { AdminBannersPage } from './admin/AdminBannersPage'
 import { AdminImportPage } from './admin/AdminImportPage'
+import { AdminSettingsPage } from './admin/AdminSettingsPage'
 import './App.css'
 import './admin/admin.css'
 
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="importacao" element={<AdminImportPage />} />
               <Route path="pedidos" element={<AdminOrdersPage />} />
               <Route path="clientes" element={<AdminCustomersPage />} />
+              <Route path="configuracoes" element={<AdminSettingsPage />} />
             </Route>
           </Route>
         </Route>

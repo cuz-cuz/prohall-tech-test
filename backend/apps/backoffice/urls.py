@@ -15,6 +15,7 @@ from .views import (
     AdminMenuListCreateView,
     AdminProductImportView,
     AdminSessionView,
+    AdminStoreSettingsView,
 )
 
 
@@ -35,4 +36,5 @@ urlpatterns = [
     path("banners/<int:pk>/", AdminBannerDetailView.as_view(), name="banner-detail"),
     path("orders/", AdminOrderListView.as_view(), name="orders"),
     path("customers/", AdminCustomerListView.as_view(), name="customers"),
+    path("settings/", AdminStoreSettingsView.as_view(), name="settings"),
 ]

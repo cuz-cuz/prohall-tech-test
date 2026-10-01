@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
 from apps.catalog.niche import NICHE_CATEGORIES
+from apps.core.models import StoreSettings
 from apps.catalog.services.dummyjson import DummyJSONError
 from apps.catalog.services.importer import ProductImportError, sync_products
 from apps.customers.models import Customer
@@ -33,6 +34,7 @@ from .serializers import (
     AdminLowStockListingSerializer,
     AdminMenuSerializer,
     AdminOrderSerializer,
+    AdminStoreSettingsSerializer,
 )
 
 
@@ -285,6 +287,14 @@ class AdminBannerDetailView(StaffAPIViewMixin, generics.RetrieveUpdateAPIView):
     serializer_class = AdminBannerSerializer
     queryset = Banner.objects.all()
     http_method_names = ("get", "patch", "head", "options")
+
+
+class AdminStoreSettingsView(StaffAPIViewMixin, generics.RetrieveUpdateAPIView):
+    serializer_class = AdminStoreSettingsSerializer
+    http_method_names = ("get", "patch", "head", "options")
+
+    def get_object(self):
+        return StoreSettings.load()
 
 
 class AdminProductImportView(StaffAPIViewMixin, APIView):

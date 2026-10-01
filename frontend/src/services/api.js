@@ -238,3 +238,11 @@ export function updateAdminBanner(id, payload, options = {}) {
 export function runAdminProductImport(options = {}) {
   return requestJson('/admin/products/import/', { ...options, method: 'POST', body: {} })
 }
+
+export function getAdminStoreSettings(options) {
+  return requestJson('/admin/settings/', options)
+}
+
+export function updateAdminStoreSettings(payload, options = {}) {
+  return requestJson('/admin/settings/', { ...options, method: 'PATCH', body: payload })
+}

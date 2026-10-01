@@ -139,6 +139,7 @@ class StorefrontAPITests(APITestCase):
         price=Decimal("49.90"),
         promotional_price=None,
         stock_quantity=5,
+        free_shipping=False,
     ):
         product = ImportedProduct.objects.create(
             external_id=external_id,
@@ -159,6 +160,7 @@ class StorefrontAPITests(APITestCase):
             promotional_price=promotional_price,
             stock_quantity=stock_quantity,
             active=active,
+            free_shipping=free_shipping,
         )
 
     def test_home_returns_only_visible_banners_and_active_menus(self):
@@ -221,6 +223,7 @@ class StorefrontAPITests(APITestCase):
             title="Kit premium",
             price=Decimal("250.00"),
             promotional_price=Decimal("200.00"),
+            free_shipping=True,
         )
         inexpensive = self.create_listing(
             external_id=31,

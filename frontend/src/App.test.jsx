@@ -77,9 +77,11 @@ function jsonResponse(data) {
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) })
 }
 
-function mockSuccessfulApi(checkoutPayload) {
+function mockSuccessfulApi(checkoutPayload, terms) {
   fetch.mockImplementation((url) => {
-    if (url.includes('/storefront/home/')) return jsonResponse(homePayload)
+    if (url.includes('/storefront/home/')) {
+      return jsonResponse(terms ? { ...homePayload, commercial_terms: { ...homePayload.commercial_terms, ...terms } } : homePayload)
+    }
     if (url.includes('/customer/session/')) {
       return jsonResponse({ authenticated: false, customer: null, csrf_token: 'test-csrf-token' })
     }
@@ -230,7 +232,7 @@ describe('Mosaico storefront', () => {
     expect(within(paymentOptions).getByRole('heading', { name: /compare as condições/i })).toBeInTheDocument()
     expect(within(paymentOptions).getByText(/10% de desconto no pix/i).closest('li')).toHaveClass('payment-option--pix')
     expect(within(paymentOptions).getByText(/cartão sem juros/i).closest('li')).toHaveClass('payment-option--card')
-    expect(within(paymentOptions).getByText(/^frete grátis$/i).closest('li')).toHaveClass('payment-option--delivery')
+    expect(within(paymentOptions).getByText(/^frete grátis neste produto$/i).closest('li')).toHaveClass('payment-option--delivery')
   })
 
   it('renders a not found page for unknown routes', async () => {
@@ -438,6 +440,29 @@ describe('Mosaico storefront', () => {
     expect(
       screen.getByRole('heading', { name: /seu carrinho está vazio/i }),
     ).toBeInTheDocument()
+  })
+
+  it('tells the shopper how much is missing for free shipping', async () => {
+    persistProductInCart()
+    // The cart holds a single R$ 429,00 item, so R$ 71,00 are still missing.
+    mockSuccessfulApi(undefined, { free_shipping_minimum: '500.00' })
+
+    render(
+      <MemoryRouter initialEntries={['/carrinho']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByText(/adicione mais R\$\s*71,00 em produtos e receba frete grátis/i),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /aumentar quantidade de cafeteira/i }),
+    )
+
+    expect(screen.getByText(/frete grátis conquistado/i)).toBeInTheDocument()
+    expect(screen.queryByText(/adicione mais/i)).toBeNull()
   })
 
   it('submits only the simulated final digits and clears an approved cart', async () => {

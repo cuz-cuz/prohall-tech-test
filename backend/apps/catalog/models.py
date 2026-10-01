@@ -96,6 +96,9 @@ class Listing(models.Model):
     )
     stock_quantity = models.PositiveIntegerField(default=0)
     active = models.BooleanField(default=True, db_index=True)
+    # Marks this listing on the storefront. It does not grant free shipping to
+    # the order: that still depends on the cart reaching the store minimum.
+    free_shipping = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -5,6 +5,7 @@ import { createAdminBanner, getAdminBanners, updateAdminBanner } from '../servic
 import { AdminFeedback, FieldError } from './AdminFeedback'
 import { apiFieldErrors, firstApiError, toApiDateTime, toLocalDateTime } from './adminForms'
 import { formatAdminDateTime } from './adminFormatters'
+import { AdminImagePreview } from './AdminMediaPreview'
 import { AdminModal, AdminConfirmModal } from './AdminModal'
 import { AdminPagination } from './AdminPagination'
 import { AdminResourceError, AdminTableSkeleton } from './AdminResourceState'
@@ -72,6 +73,7 @@ export function AdminBannersPage() {
     {editor ? <AdminModal title={editor === 'new' ? 'Novo banner' : `Editar ${editor.title}`} description="Horários são exibidos no fuso de São Paulo e persistidos em UTC." onClose={() => setEditor(null)}><form className="admin-form-grid" onSubmit={save}>
       <label className="admin-field"><span>Título interno</span><input required maxLength="160" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><FieldError errors={errors} name="title" /></label><label className="admin-field"><span>Ordem</span><input type="number" min="0" step="1" value={form.display_order} onChange={(event) => setForm({ ...form, display_order: event.target.value })} /></label>
       <label className="admin-field admin-field--wide"><span>URL da imagem</span><input required type="url" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><FieldError errors={errors} name="image_url" /></label>
+      <div className="admin-field--wide"><span className="admin-preview-label">Prévia do banner</span><AdminImagePreview src={form.image_url} alt={form.alt_text} ratio="wide" /></div>
       <label className="admin-field"><span>Link de destino</span><input placeholder="/produtos ou https://…" value={form.link_url} onChange={(event) => setForm({ ...form, link_url: event.target.value })} /><FieldError errors={errors} name="link_url" /></label><label className="admin-field"><span>Texto alternativo</span><input maxLength="255" value={form.alt_text} onChange={(event) => setForm({ ...form, alt_text: event.target.value })} /></label>
       <label className="admin-field"><span>Início (opcional)</span><input type="datetime-local" value={form.starts_at} onChange={(event) => setForm({ ...form, starts_at: event.target.value })} /></label><label className="admin-field"><span>Fim (opcional)</span><input type="datetime-local" value={form.ends_at} onChange={(event) => setForm({ ...form, ends_at: event.target.value })} /><FieldError errors={errors} name="ends_at" /></label>
       <label className="admin-check admin-field--wide"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>Banner ativo</span></label>

@@ -46,8 +46,8 @@ function PaymentRows({
         <span className="payment-option__mark" aria-hidden="true">Frete</span>
         <div>
           {detailed ? <small>Condição de entrega</small> : null}
-          <strong>{freeShipping ? 'Frete grátis' : 'Frete grátis disponível'}</strong>
-          <span>{freeShipping ? 'Este produto já atingiu o valor mínimo.' : `Em compras a partir de ${formatCurrency(minimum)}.`}</span>
+          <strong>{freeShipping ? 'Frete grátis neste produto' : 'Frete grátis disponível'}</strong>
+          <span>{`Compras a partir de ${formatCurrency(minimum)} têm frete grátis no pedido.`}</span>
         </div>
       </li>
     </ul>

@@ -36,6 +36,7 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 14. Busca considera título, descrição, marca e categoria; ignora caixa e acentos e aceita termos incompletos.
 15. Nunca solicitar, armazenar ou registrar um número real de cartão.
 16. O painel não usa `<select>` nativo: dropdowns são `AdminSelect` e ações de tabela confirmam ou editam em `AdminModal`.
+17. O mínimo de frete grátis vive em `StoreSettings` e vale sobre o subtotal do carrinho; `Listing.free_shipping` é só destaque do item e não dispensa o mínimo. `FREE_SHIPPING_MINIMUM` é apenas o valor inicial.
 
 ## Segurança
 

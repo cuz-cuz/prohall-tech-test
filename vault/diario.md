@@ -726,3 +726,36 @@ A loja é de nicho feminino, mas a importação trazia as 24 categorias do Dummy
 
 - conferir o dropdown e os modais no navegador antes de seguir para a Fase 14;
 - decidir se os 148 produtos fora do nicho já importados serão removidos com `--remover-fora-do-nicho`.
+
+## 1º de outubro de 2026 — Dados de origem no editor e frete grátis configurável
+
+### Entregue
+
+- editor de anúncio mostra o produto de origem com imagem, marca, categoria, SKU, preço, estoque, disponibilidade e data de sincronização;
+- opções do dropdown de produtos ganharam miniatura;
+- editor de banner mostra prévia da imagem, com aviso visível quando a URL não carrega;
+- `StoreSettings` em `apps.core`, linha única, com o mínimo de frete grátis editável em `/api/admin/settings/` e na nova página Configurações do painel;
+- `Listing.free_shipping` como marcação por anúncio, editável no formulário;
+- mínimo passou a valer sobre o subtotal do carrinho; o carrinho informa quanto falta e avisa quando o frete foi conquistado;
+- filtro `free_shipping` do catálogo passou a consultar a marcação do anúncio.
+
+### Motivo
+
+O valor só existia em variável de ambiente, exigindo deploy para mudar, e a regra comparava o preço unitário em vez do valor da compra.
+
+### Validação
+
+- 92 testes backend aprovados em PostgreSQL;
+- novos testes cobrem o valor inicial vindo do ambiente, a edição refletida na vitrine, a recusa de valor zero ou negativo, o bloqueio para anônimo e usuário comum, e a marcação por anúncio;
+- 41 testes frontend aprovados, incluindo a mensagem "adicione mais R$ 71,00", a troca para o estado conquistado, a edição do mínimo e a prévia do banner com URL quebrada;
+- migrations aplicadas no banco local: 5 de 24 anúncios receberam a marcação pelo backfill;
+- lint e build de produção aprovados.
+
+### Correção de estrutura
+
+- `AdminStoreSettingsTests` havia sido criada herdando `BackofficeAPITests`, o que reexecutava os 11 testes do pai (27 testes, 72 s). Os fixtures foram extraídos para `BackofficeFixtures`, sem testes próprios, e as duas classes passaram a herdá-lo: 16 testes, 39 s.
+
+### Próximo
+
+- segue pendente a conferência visual no navegador, inclusive das novas telas;
+- decidir sobre os 148 produtos fora do nicho ainda no banco.

@@ -5,6 +5,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
+from apps.core.models import StoreSettings
 from apps.customers.models import Customer
 from apps.orders.models import Order
 from apps.orders.serializers import StrictSerializer
@@ -135,7 +136,8 @@ class AdminListingSerializer(RejectUnknownFieldsMixin, serializers.ModelSerializ
         fields = (
             "id", "product_id", "product_title", "external_id", "brand", "category",
             "sku", "image_url", "slug", "title", "description", "price",
-            "promotional_price", "stock_quantity", "active", "created_at", "updated_at",
+            "promotional_price", "stock_quantity", "active", "free_shipping",
+            "created_at", "updated_at",
         )
         read_only_fields = ("created_at", "updated_at")
         extra_kwargs = {
@@ -235,3 +237,16 @@ class AdminBannerSerializer(RejectUnknownFieldsMixin, serializers.ModelSerialize
         if starts_at is not None and ends_at is not None and ends_at <= starts_at:
             raise serializers.ValidationError({"ends_at": "O fim da exibição deve ser posterior ao início."})
         return attrs
+
+
+class AdminStoreSettingsSerializer(
+    RejectUnknownFieldsMixin,
+    serializers.ModelSerializer,
+):
+    class Meta:
+        model = StoreSettings
+        fields = ("free_shipping_minimum", "updated_at")
+        read_only_fields = ("updated_at",)
+        extra_kwargs = {
+            "free_shipping_minimum": {"min_value": Decimal("0.01")},
+        }

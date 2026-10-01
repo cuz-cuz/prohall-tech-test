@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import status
@@ -11,11 +12,17 @@ from rest_framework.test import APIClient, APITestCase
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu
 from apps.catalog.services.dummyjson import DummyJSONTransportError
 from apps.catalog.services.importer import ImportSummary
+from apps.core.models import StoreSettings
 from apps.customers.models import Customer, CustomerAccessCode
 from apps.orders.models import Order, OrderItem
 
 
-class BackofficeAPITests(APITestCase):
+class BackofficeFixtures:
+    """Users and commerce data shared by the panel test classes.
+
+    It holds no tests, so inheriting it does not re-run another class's suite.
+    """
+
     def setUp(self):
         user_model = get_user_model()
         self.staff = user_model.objects.create_user(
@@ -101,6 +108,8 @@ class BackofficeAPITests(APITestCase):
         )
         return product, listing, customer, order
 
+
+class BackofficeAPITests(BackofficeFixtures, APITestCase):
     def test_session_is_anonymous_and_sets_csrf_token(self):
         response = self.client.get(reverse("backoffice:session"))
 
@@ -412,3 +421,68 @@ class BackofficeAPITests(APITestCase):
         for response in (products, listings, orders, customers):
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual(response.data["count"], 1)
+
+
+class AdminStoreSettingsTests(BackofficeFixtures, APITestCase):
+    def test_settings_start_from_the_environment_default(self):
+        response = self.authenticated_client().get(reverse("backoffice:settings"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            Decimal(response.data["free_shipping_minimum"]),
+            settings.FREE_SHIPPING_MINIMUM,
+        )
+
+    def test_staff_updates_the_minimum_and_the_storefront_follows(self):
+        response = self.authenticated_client().patch(
+            reverse("backoffice:settings"),
+            {"free_shipping_minimum": "250.00"},
+            format="json",
+        )
+        home = self.client.get(reverse("storefront:home"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            home.data["commercial_terms"]["free_shipping_minimum"],
+            "250.00",
+        )
+        # Editing must not create a second row.
+        self.assertEqual(StoreSettings.objects.count(), 1)
+
+    def test_minimum_must_be_positive(self):
+        client = self.authenticated_client()
+
+        for invalid in ("0.00", "-10.00"):
+            with self.subTest(invalid=invalid):
+                response = client.patch(
+                    reverse("backoffice:settings"),
+                    {"free_shipping_minimum": invalid},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_settings_are_closed_to_anonymous_and_to_regular_users(self):
+        anonymous = APIClient().get(reverse("backoffice:settings"))
+        regular = self.authenticated_client(self.regular_user).patch(
+            reverse("backoffice:settings"),
+            {"free_shipping_minimum": "10.00"},
+            format="json",
+        )
+
+        self.assertEqual(anonymous.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(regular.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_listing_free_shipping_flag_round_trips(self):
+        self.create_commerce_data()
+        client = self.authenticated_client()
+        listing_id = client.get(reverse("backoffice:listings")).data["results"][0]["id"]
+
+        updated = client.patch(
+            reverse("backoffice:listing-detail", kwargs={"pk": listing_id}),
+            {"free_shipping": True},
+            format="json",
+        )
+
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertTrue(updated.data["free_shipping"])
+        self.assertTrue(Listing.objects.get(pk=listing_id).free_shipping)

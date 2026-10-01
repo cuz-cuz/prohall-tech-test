@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Banner, Listing, Menu
+from apps.core.models import StoreSettings
 
 from .catalog import active_listing_queryset, filter_and_order_listings
 from .search import search_active_listings
@@ -49,7 +50,9 @@ class HomeView(PublicAPIViewMixin, APIView):
                 "commercial_terms": {
                     "pix_discount_percentage": str(settings.PIX_DISCOUNT_PERCENT),
                     "max_installments": settings.MAX_INSTALLMENTS,
-                    "free_shipping_minimum": str(settings.FREE_SHIPPING_MINIMUM),
+                    "free_shipping_minimum": format(
+                        StoreSettings.load().free_shipping_minimum, ".2f"
+                    ),
                 },
             }
         )

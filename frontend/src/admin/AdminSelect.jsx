@@ -108,7 +108,10 @@ export function AdminSelect({ label, value, onChange, options, placeholder = 'Se
         onClick={() => (open ? closeList() : openList())}
         onKeyDown={onKeyDown}
       >
-        <span className={selected ? undefined : 'admin-select__placeholder'}>{selected ? selected.label : placeholder}</span>
+        <span className="admin-select__value">
+          {selected?.image ? <img src={selected.image} alt="" loading="lazy" /> : null}
+          <span className={selected ? undefined : 'admin-select__placeholder'}>{selected ? selected.label : placeholder}</span>
+        </span>
         <AdminIcon name="chevron" />
       </button>
       {open ? (
@@ -126,7 +129,10 @@ export function AdminSelect({ label, value, onChange, options, placeholder = 'Se
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => pick(option)}
               >
-                <span>{option.label}</span>
+                <span className="admin-select__value">
+                  {option.image ? <img src={option.image} alt="" loading="lazy" /> : null}
+                  <span>{option.label}</span>
+                </span>
                 {isSelected ? <AdminIcon name="check" /> : null}
               </li>
             )

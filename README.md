@@ -104,7 +104,9 @@ Rotas públicas da interface:
 - `/acesso` — acesso posterior por código temporário enviado ao e-mail;
 - `/produto/{slug}` — galeria, quantidade, compartilhamento e detalhes comerciais do anúncio.
 
-A vitrine informa 10% de desconto no Pix, parcelamento em até 12 vezes e frete grátis a partir de R$ 199,00. Esses parâmetros vêm do backend e podem ser alterados com `PIX_DISCOUNT_PERCENT`, `MAX_INSTALLMENTS` e `FREE_SHIPPING_MINIMUM`. São condições de apresentação: o checkout atual continua sendo uma simulação por cartão e sempre confirma o preço e o estoque no servidor.
+A vitrine informa 10% de desconto no Pix, parcelamento em até 12 vezes e frete grátis a partir de um valor mínimo. Pix e parcelamento vêm de `PIX_DISCOUNT_PERCENT` e `MAX_INSTALLMENTS`.
+
+O mínimo de frete grátis é editável em **Configurações** no painel administrativo e vale sobre o **subtotal do carrinho**: o carrinho mostra quanto falta para alcançá-lo. `FREE_SHIPPING_MINIMUM` apenas define o valor inicial, usado na primeira vez que a configuração é lida; depois disso o valor vive no banco e mudar não exige novo deploy. Cada anúncio também pode ser marcado com **frete grátis** no editor, mas isso é apenas um destaque do item na vitrine e não dispensa o mínimo do pedido. São condições de apresentação: o checkout atual continua sendo uma simulação por cartão e sempre confirma o preço e o estoque no servidor.
 
 O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). O carrinho persiste no navegador, mas o backend recalcula preços, atividade e estoque dentro da transação do checkout. Para deploy, configure frontend e API em subdomínios do mesmo domínio próprio e ajuste CORS, CSRF e HTTPS; a sessão usa cookies `SameSite=Lax`.
 

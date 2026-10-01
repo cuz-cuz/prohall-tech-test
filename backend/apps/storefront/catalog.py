@@ -59,9 +59,7 @@ def filter_and_order_listings(queryset, filters, *, default_ordering="best_selli
     if maximum is not None:
         queryset = queryset.filter(storefront_effective_price__lte=maximum)
     if filters.get("free_shipping"):
-        queryset = queryset.filter(
-            storefront_effective_price__gte=settings.FREE_SHIPPING_MINIMUM
-        )
+        queryset = queryset.filter(free_shipping=True)
 
     ordering = filters.get("ordering") or default_ordering
     if ordering == "featured" and default_ordering != "featured":

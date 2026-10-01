@@ -82,7 +82,6 @@ class ListingSerializer(serializers.ModelSerializer):
     pix_price = serializers.SerializerMethodField()
     installment_count = serializers.SerializerMethodField()
     installment_value = serializers.SerializerMethodField()
-    free_shipping = serializers.SerializerMethodField()
 
     @staticmethod
     def _money(value):
@@ -112,9 +111,6 @@ class ListingSerializer(serializers.ModelSerializer):
             self._money(obj.effective_price / settings.MAX_INSTALLMENTS),
             ".2f",
         )
-
-    def get_free_shipping(self, obj):
-        return obj.effective_price >= settings.FREE_SHIPPING_MINIMUM
 
     class Meta:
         model = Listing

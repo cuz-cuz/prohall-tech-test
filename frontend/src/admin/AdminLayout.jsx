@@ -14,6 +14,7 @@ const navigation = [
   { to: '/admin/importacao', label: 'Importação', icon: 'import' },
   { to: '/admin/pedidos', label: 'Pedidos', icon: 'orders' },
   { to: '/admin/clientes', label: 'Clientes', icon: 'customers' },
+  { to: '/admin/configuracoes', label: 'Configurações', icon: 'settings' },
 ]
 
 const pageTitles = {
@@ -25,6 +26,7 @@ const pageTitles = {
   '/admin/importacao': 'Importação de produtos',
   '/admin/pedidos': 'Pedidos',
   '/admin/clientes': 'Clientes',
+  '/admin/configuracoes': 'Configurações da loja',
 }
 
 export function AdminLayout() {

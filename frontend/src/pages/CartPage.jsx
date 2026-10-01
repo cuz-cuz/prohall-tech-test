@@ -71,6 +71,28 @@ function CartItem({ item }) {
   )
 }
 
+function FreeShippingNotice({ subtotalCents, minimum }) {
+  const minimumCents = currencyToCents(minimum)
+  if (minimumCents === null) return null
+
+  const missingCents = minimumCents - subtotalCents
+  if (missingCents <= 0) {
+    return (
+      <p className="cart-shipping cart-shipping--reached" role="status">
+        <strong>Frete grátis conquistado!</strong>
+        <span>Seu carrinho atingiu {formatCurrencyFromCents(minimumCents)}.</span>
+      </p>
+    )
+  }
+
+  return (
+    <p className="cart-shipping" role="status">
+      <strong>Adicione mais {formatCurrencyFromCents(missingCents)} em produtos e receba frete grátis.</strong>
+      <span>O frete fica grátis em compras a partir de {formatCurrencyFromCents(minimumCents)}.</span>
+    </p>
+  )
+}
+
 export function CartPage() {
   const { items, totalItems, subtotalCents, clearCart } = useCart()
   const { homeState } = useOutletContext()
@@ -116,6 +138,7 @@ export function CartPage() {
             <span>Subtotal</span>
             <strong>{formatCurrencyFromCents(subtotalCents)}</strong>
           </div>
+          <FreeShippingNotice subtotalCents={subtotalCents} minimum={terms?.free_shipping_minimum} />
           <p>
             Preços, disponibilidade e estoque serão confirmados antes do pagamento.
           </p>

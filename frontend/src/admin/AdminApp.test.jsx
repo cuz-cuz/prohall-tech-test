@@ -32,7 +32,7 @@ const dashboardPayload = {
     },
   ],
   low_stock: [
-    { id: 1, title: 'Escova modeladora', sku: 'ESC-42', stock_quantity: 3, active: true },
+    { id: 1, title: 'Escova modeladora', sku: 'ESC-42', stock_quantity: 3, active: true, free_shipping: false },
   ],
   last_import: { completed_at: '2026-09-30T11:00:00Z', product_count: 100 },
 }
@@ -88,8 +88,8 @@ const listingsPayload = {
   next: null,
   previous: null,
   results: [
-    { id: 1, product_id: 1, product_title: 'Escova modeladora', title: 'Escova modeladora', description: 'Descrição', slug: 'escova-modeladora', sku: 'ESC-42', image_url: 'https://example.com/escova.jpg', price: '129.90', promotional_price: '99.90', stock_quantity: 3, active: true },
-    { id: 2, product_id: 1, product_title: 'Escova modeladora', title: 'Kit profissional', description: '', slug: 'kit-profissional', sku: 'ESC-42', image_url: 'https://example.com/kit.jpg', price: '199.90', promotional_price: null, stock_quantity: 8, active: true },
+    { id: 1, product_id: 1, product_title: 'Escova modeladora', title: 'Escova modeladora', description: 'Descrição', slug: 'escova-modeladora', sku: 'ESC-42', image_url: 'https://example.com/escova.jpg', price: '129.90', promotional_price: '99.90', stock_quantity: 3, active: true, free_shipping: false },
+    { id: 2, product_id: 1, product_title: 'Escova modeladora', title: 'Kit profissional', description: '', slug: 'kit-profissional', sku: 'ESC-42', image_url: 'https://example.com/kit.jpg', price: '199.90', promotional_price: null, stock_quantity: 8, active: true, free_shipping: true },
   ],
 }
 
@@ -120,6 +120,10 @@ function mockAdminApi(session = staffSession) {
     }
     if (url.includes('/admin/dashboard/')) return jsonResponse(dashboardPayload)
     if (url.includes('/admin/products/import/')) return jsonResponse({ created: 3, updated: 97, total: 100, completed_at: '2026-10-01T12:00:00Z' })
+    if (url.includes('/admin/settings/')) {
+      if (options.method === 'PATCH') return jsonResponse({ free_shipping_minimum: JSON.parse(options.body).free_shipping_minimum, updated_at: '2026-10-01T13:00:00Z' })
+      return jsonResponse({ free_shipping_minimum: '199.00', updated_at: '2026-10-01T12:00:00Z' })
+    }
     if (url.includes('/admin/listings/')) {
       if (options.method === 'POST') return jsonResponse({ ...listingsPayload.results[0], id: 3 }, 201)
       if (options.method === 'PATCH') return jsonResponse({ ...listingsPayload.results[0], ...JSON.parse(options.body) })
@@ -355,5 +359,75 @@ describe('Mosaico Admin', () => {
     await screen.findByText(/anúncio desativado/i)
     const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/listings/') && options?.method === 'PATCH')
     expect(JSON.parse(call[1].body)).toEqual({ active: false })
+  })
+
+  it('shows the source product data and image while configuring a listing', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/anuncios']}><App /></MemoryRouter>)
+
+    await screen.findByRole('table', { name: /lista de anúncios/i })
+    fireEvent.click(screen.getByRole('button', { name: /novo anúncio/i }))
+    const editor = await screen.findByRole('dialog', { name: /novo anúncio/i })
+    expect(within(editor).getByText(/selecione um produto para ver os dados de origem/i)).toBeInTheDocument()
+
+    fireEvent.click(within(editor).getByRole('combobox', { name: /produto de origem/i }))
+    fireEvent.click(within(editor).getByRole('option', { name: /escova modeladora/i }))
+
+    const summary = await within(editor).findByRole('region', { name: /dados de origem de escova modeladora/i })
+    expect(within(summary).getByText(/mosaico/i)).toBeInTheDocument()
+    expect(within(summary).getByText('ESC-42', { exact: false })).toBeInTheDocument()
+    expect(within(summary).getByText('9')).toBeInTheDocument()
+    expect(within(summary).getByRole('img')).toHaveAttribute('src', 'https://example.com/escova.jpg')
+  })
+
+  it('previews the banner image and reports a broken URL', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/banners']}><App /></MemoryRouter>)
+
+    await screen.findByRole('table', { name: /lista de banners/i })
+    fireEvent.click(screen.getByRole('button', { name: /novo banner/i }))
+    const editor = await screen.findByRole('dialog', { name: /novo banner/i })
+    expect(within(editor).getByText(/sem imagem/i)).toBeInTheDocument()
+
+    // An empty alt makes the image decorative, so name it before querying by role.
+    fireEvent.change(within(editor).getByLabelText(/texto alternativo/i), { target: { value: 'Banner de lançamentos' } })
+    fireEvent.change(within(editor).getByLabelText(/url da imagem/i), { target: { value: 'https://example.com/banner.jpg' } })
+    const preview = within(editor).getByRole('img', { name: /banner de lançamentos/i })
+    expect(preview).toHaveAttribute('src', 'https://example.com/banner.jpg')
+
+    fireEvent.error(preview)
+    expect(await within(editor).findByText(/a imagem não carregou/i)).toBeInTheDocument()
+  })
+
+  it('edits the free shipping minimum from the settings page', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/configuracoes']}><App /></MemoryRouter>)
+
+    const field = await screen.findByLabelText(/valor mínimo da compra/i)
+    expect(field).toHaveValue(199)
+
+    fireEvent.change(field, { target: { value: '250.00' } })
+    fireEvent.click(screen.getByRole('button', { name: /salvar configurações/i }))
+
+    await screen.findByText(/valor mínimo atualizado/i)
+    const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/settings/') && options?.method === 'PATCH')
+    expect(call[1].headers['X-CSRFToken']).toBe('admin-csrf-token')
+    expect(JSON.parse(call[1].body)).toEqual({ free_shipping_minimum: '250.00' })
+  })
+
+  it('round-trips the per-listing free shipping flag', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/anuncios']}><App /></MemoryRouter>)
+
+    const table = await screen.findByRole('table', { name: /lista de anúncios/i })
+    fireEvent.click(within(table).getByRole('button', { name: /editar escova modeladora/i }))
+    const editor = await screen.findByRole('dialog', { name: /editar escova modeladora/i })
+
+    fireEvent.click(within(editor).getByLabelText(/destacar frete grátis neste anúncio/i))
+    fireEvent.click(within(editor).getByRole('button', { name: /salvar anúncio/i }))
+
+    await screen.findByText(/anúncio atualizado/i)
+    const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/listings/') && options?.method === 'PATCH')
+    expect(JSON.parse(call[1].body)).toMatchObject({ free_shipping: true })
   })
 })

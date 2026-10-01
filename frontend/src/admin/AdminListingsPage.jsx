@@ -5,13 +5,14 @@ import { createAdminListing, getAdminListings, getAdminProducts, updateAdminList
 import { formatCurrency } from '../utils/formatters'
 import { AdminFeedback, FieldError } from './AdminFeedback'
 import { apiFieldErrors, firstApiError } from './adminForms'
+import { AdminProductSummary } from './AdminMediaPreview'
 import { AdminModal, AdminConfirmModal } from './AdminModal'
 import { AdminPagination } from './AdminPagination'
 import { AdminResourceError, AdminTableSkeleton } from './AdminResourceState'
 import { AdminSelect } from './AdminSelect'
 import { AdminIcon } from './AdminIcon'
 
-const emptyListing = { product_id: '', title: '', description: '', price: '', promotional_price: '', stock_quantity: 0, active: true }
+const emptyListing = { product_id: '', title: '', description: '', price: '', promotional_price: '', stock_quantity: 0, active: true, free_shipping: false }
 const statusOptions = [{ value: '', label: 'Todos' }, { value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]
 const stockOptions = [{ value: '', label: 'Todos' }, { value: 'out', label: 'Esgotado' }, { value: 'low', label: 'Baixo (1–5)' }, { value: 'in', label: 'Acima de 5' }]
 
@@ -30,7 +31,9 @@ export function AdminListingsPage() {
   const loadProducts = useCallback((options) => getAdminProducts({ page_size: 500 }, options), [])
   const state = useApiResource(loadListings)
   const products = useApiResource(loadProducts)
-  const productOptions = (products.data?.results ?? []).map((product) => ({ value: product.id, label: `${product.title} · ${product.sku || `ID ${product.external_id}`}` }))
+  const productList = products.data?.results ?? []
+  const productOptions = productList.map((product) => ({ value: product.id, label: `${product.title} · ${product.sku || `ID ${product.external_id}`}`, image: product.image_url }))
+  const selectedProduct = productList.find((product) => String(product.id) === String(form.product_id)) ?? null
 
   function openEditor(listing = null) {
     setEditor(listing ?? 'new')
@@ -42,6 +45,7 @@ export function AdminListingsPage() {
       promotional_price: listing.promotional_price ?? '',
       stock_quantity: listing.stock_quantity,
       active: listing.active,
+      free_shipping: listing.free_shipping,
     } : emptyListing)
     setErrors({})
     setFeedback(null)
@@ -101,11 +105,13 @@ export function AdminListingsPage() {
         <AdminModal title={editor === 'new' ? 'Novo anúncio' : `Editar ${editor.title}`} description="O produto importado é somente a origem; os dados comerciais ficam no anúncio." onClose={() => setEditor(null)}>
           <form className="admin-form-grid" onSubmit={save}>
             <div className="admin-field admin-field--wide"><AdminSelect label="Produto de origem" value={form.product_id} options={productOptions} placeholder="Selecione um produto" disabled={editor !== 'new'} describedBy={errors.product_id ? 'product_id-error' : undefined} onChange={(value) => setForm({ ...form, product_id: value })} /><FieldError errors={errors} name="product_id" /></div>
+            <div className="admin-field--wide"><AdminProductSummary product={selectedProduct} /></div>
             <label className="admin-field admin-field--wide"><span>Título comercial</span><input required maxLength="255" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><FieldError errors={errors} name="title" /></label>
             <label className="admin-field"><span>Preço normal</span><input required type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /><FieldError errors={errors} name="price" /></label>
             <label className="admin-field"><span>Preço promocional</span><input type="number" min="0.01" step="0.01" value={form.promotional_price} onChange={(event) => setForm({ ...form, promotional_price: event.target.value })} /><FieldError errors={errors} name="promotional_price" /></label>
             <label className="admin-field"><span>Estoque disponível</span><input required type="number" min="0" step="1" value={form.stock_quantity} onChange={(event) => setForm({ ...form, stock_quantity: event.target.value })} /><FieldError errors={errors} name="stock_quantity" /></label>
             <label className="admin-check"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>Anúncio ativo na loja</span></label>
+            <label className="admin-check"><input type="checkbox" checked={form.free_shipping} onChange={(event) => setForm({ ...form, free_shipping: event.target.checked })} /><span>Destacar frete grátis neste anúncio</span></label>
             <label className="admin-field admin-field--wide"><span>Descrição</span><textarea rows="4" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
             <div className="admin-form-actions admin-field--wide"><button className="admin-button admin-button--primary" type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar anúncio'}</button><button className="admin-button admin-button--secondary" type="button" onClick={() => setEditor(null)}>Cancelar</button></div>
           </form>
