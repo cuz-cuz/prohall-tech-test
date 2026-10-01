@@ -157,3 +157,84 @@ export function getMyOrders(options) {
 export function getMyOrder(publicId, options) {
   return requestJson(`/orders/mine/${encodeURIComponent(publicId)}/`, options)
 }
+
+export function getAdminSession(options) {
+  return requestJson('/admin/session/', options)
+}
+
+export function loginAdmin(username, password, options = {}) {
+  return requestJson('/admin/login/', {
+    ...options,
+    method: 'POST',
+    body: { username, password },
+  })
+}
+
+export function logoutAdmin(options = {}) {
+  return requestJson('/admin/logout/', {
+    ...options,
+    method: 'POST',
+    body: {},
+  })
+}
+
+export function getAdminDashboard(options) {
+  return requestJson('/admin/dashboard/', options)
+}
+
+function adminList(path, params = {}, options) {
+  if (typeof params === 'number') return requestJson(pathWithParams(path, { page: params }), options)
+  return requestJson(pathWithParams(path, params), options)
+}
+
+export function getAdminProducts(params = {}, options) {
+  return adminList('/admin/products/', params, options)
+}
+
+export function getAdminOrders(params = {}, options) {
+  return adminList('/admin/orders/', params, options)
+}
+
+export function getAdminCustomers(params = {}, options) {
+  return adminList('/admin/customers/', params, options)
+}
+
+export function getAdminListings(params = {}, options) {
+  return adminList('/admin/listings/', params, options)
+}
+
+export function createAdminListing(payload, options = {}) {
+  return requestJson('/admin/listings/', { ...options, method: 'POST', body: payload })
+}
+
+export function updateAdminListing(id, payload, options = {}) {
+  return requestJson(`/admin/listings/${id}/`, { ...options, method: 'PATCH', body: payload })
+}
+
+export function getAdminMenus(params = {}, options) {
+  return adminList('/admin/menus/', params, options)
+}
+
+export function createAdminMenu(payload, options = {}) {
+  return requestJson('/admin/menus/', { ...options, method: 'POST', body: payload })
+}
+
+export function updateAdminMenu(id, payload, options = {}) {
+  return requestJson(`/admin/menus/${id}/`, { ...options, method: 'PATCH', body: payload })
+}
+
+export function getAdminBanners(params = {}, options) {
+  return adminList('/admin/banners/', params, options)
+}
+
+export function createAdminBanner(payload, options = {}) {
+  return requestJson('/admin/banners/', { ...options, method: 'POST', body: payload })
+}
+
+export function updateAdminBanner(id, payload, options = {}) {
+  return requestJson(`/admin/banners/${id}/`, { ...options, method: 'PATCH', body: payload })
+}
+
+export function runAdminProductImport(options = {}) {
+  return requestJson('/admin/products/import/', { ...options, method: 'POST', body: {} })
+}

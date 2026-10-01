@@ -591,3 +591,76 @@ Antes do deploy e da entrega, o projeto ganhará uma área administrativa React 
 - lint sem avisos e build de produção aprovado;
 - `git diff --check` aprovado;
 - conferência visual automatizada ficou indisponível porque não havia navegador conectado à sessão; alteração ficou disponível no servidor local para aceite manual.
+
+## 1º de outubro de 2026 — Fase 11: fundação do painel administrativo
+
+### Entregue
+
+- criado o app backend `backoffice`, sem modelos ou migrations novas;
+- autenticação administrativa usa sessão Django, rotação de sessão, cookie HttpOnly e proteção CSRF;
+- login aceita somente usuários autenticáveis, ativos e `is_staff`;
+- permissão centralizada protege dashboard e todas as consultas administrativas;
+- dashboard mostra produtos importados, anúncios ativos, pedidos, clientes, receita aprovada, estoque baixo, pedidos recentes e última sincronização DummyJSON;
+- APIs paginadas e somente leitura consultam produtos importados, pedidos e clientes;
+- serializers administrativos omitem senha, hashes e códigos temporários, fingerprints de idempotência, últimos dígitos do pagamento e payload bruto importado;
+- painel React próprio criado em `/admin`, com login, rotas protegidas, layout responsivo, estados de carregamento/erro/vazio, navegação por teclado e logout também no mobile;
+- Django Admin preservado e ligado no painel como contingência;
+- nenhuma operação de escrita comercial foi antecipada da Fase 12.
+
+### Validação
+
+- 6 testes novos do `apps.backoffice` aprovados em SQLite, cobrindo anonimato, usuário comum, staff ativo, staff inativo, CSRF, logout, paginação, somente leitura e ausência de dados sensíveis;
+- a suíte PostgreSQL completa encontrou 72 testes, mas não iniciou porque o serviço local recusou a senha configurada; Docker não está instalado nesta máquina;
+- `manage.py check`, `makemigrations --check --dry-run` e compilação Python aprovados com banco alternativo;
+- 29 testes frontend aprovados;
+- lint frontend sem avisos e build de produção aprovado;
+- nenhuma credencial ou segredo novo foi adicionado.
+
+### Próximo
+
+- antes da Fase 12, selecionar **GPT-5.6 Sol — Medium**;
+- implementar somente a operação comercial do painel: anúncios, menus, banners e reimportação, com filtros e feedback;
+- repetir a suíte integrada em PostgreSQL assim que a credencial local válida ou um ambiente Docker estiver disponível.
+
+## 1º de outubro de 2026 — Fase 12: operação comercial no painel
+
+### Entregue
+
+- APIs staff com sessão e CSRF para criar e editar anúncios, menus e banners, sem oferecer exclusão destrutiva;
+- ativação e desativação com confirmação explícita no painel;
+- validação de preço, promoção, estoque e período de banners ligada aos respectivos campos;
+- seleção e ordenação de anúncios dentro dos menus, preservada por `MenuListing.display_order`;
+- busca, filtros e paginação para produtos, anúncios, menus, banners, pedidos e clientes;
+- reimportação paginada e idempotente do DummyJSON pelo painel, com tratamento seguro de falhas e resumo de novos, atualizados e total;
+- telas React responsivas para toda a operação comercial, com editores contextuais, estados de carregamento, vazio, erro e sucesso;
+- documentação de fase e matriz de conformidade atualizadas.
+
+### Validação
+
+- 11 testes de `apps.backoffice` aprovados em PostgreSQL, incluindo CRUD, validações, ordenação, filtros, permissões e importação;
+- suíte integrada com 77 testes backend aprovada em PostgreSQL;
+- 33 testes frontend aprovados, com cobertura de criação de anúncio, ordenação de menu, agendamento de banner e confirmação da importação;
+- `manage.py check`, `makemigrations --check --dry-run`, lint e build de produção frontend aprovados;
+- nenhuma migration foi necessária e nenhum segredo foi adicionado.
+
+### Próximo
+
+- antes da Fase 13, selecionar **GPT-5.6 Sol — High**;
+- executar a revisão de acessibilidade, responsividade, integração painel–loja, permissões de campos e concorrência prevista na Fase 13.
+
+## 1º de outubro de 2026 — Ajuste visual das tabelas administrativas
+
+### Entregue
+
+- tabelas do painel aproximadas da referência em `Prints/exemplo tabela e coluna de ações.jpeg`, com cabeçalhos compactos em caixa alta, linhas mais arejadas, status discretos e paginação numérica;
+- coluna de ações de anúncios, menus e banners convertida para ícones consistentes: lápis azul para edição e pausa laranja ou reprodução verde para status;
+- rótulos acessíveis, foco visível e `title` preservados nos botões de ícone;
+- exclusão vermelha da referência não foi introduzida, pois a operação comercial do painel usa desativação reversível e não oferece exclusão;
+- miniaturas dos produtos adicionadas às tabelas de Produtos importados e Anúncios, com fallback visual quando não há imagem;
+- API administrativa de produtos importados passou a expor somente a URL da imagem principal já normalizada pelo catálogo.
+
+### Validação
+
+- 11 testes do backoffice aprovados em PostgreSQL;
+- 33 testes frontend, lint e build de produção aprovados;
+- `manage.py check` e `git diff --check` aprovados.

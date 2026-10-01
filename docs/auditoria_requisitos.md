@@ -10,9 +10,9 @@ Legenda:
 
 ## Resultado executivo
 
-O núcleo da loja está funcional: importação idempotente, catálogo, busca, carrinho persistente, checkout transacional, pagamento simulado, conta automática e histórico de pedidos. A suíte atual possui 66 testes backend e 24 testes frontend aprovados.
+O núcleo da loja está funcional: importação idempotente, catálogo, busca, carrinho persistente, checkout transacional, pagamento simulado, conta automática e histórico de pedidos. O painel React possui autenticação staff, dashboard, consultas e operação comercial de anúncios, menus, banners e importação. A Fase 13 ainda deve executar a aprovação manual completa de acessibilidade, responsividade, integração painel–loja e concorrência.
 
-A entrega ainda não está pronta. As pendências prioritárias são o painel administrativo React solicitado pelo responsável, o setup completo em um comando com credencial administrativa de teste, a documentação final do README e a publicação das alterações locais no Git. O deploy continua pendente como diferencial planejado.
+A entrega ainda não está pronta. As pendências prioritárias são a aprovação de qualidade do painel, o setup completo em um comando com credencial administrativa de teste, a documentação final do README e a publicação das alterações locais no Git. O deploy continua pendente como diferencial planejado.
 
 ## Matriz de conformidade
 
@@ -21,14 +21,14 @@ A entrega ainda não está pronta. As pendências prioritárias são o painel ad
 | Nome e identidade própria | Concluído | A loja se chama **Mosaico**, possui tokens visuais, documentação de design e interface responsiva própria. |
 | Importação DummyJSON | Concluído | O comando `import_products` percorre a paginação, usa o identificador externo como chave e pode ser repetido sem duplicar ou sobrescrever anúncios. |
 | Persistência no banco | Concluído | Produtos importados e anúncios comerciais são entidades separadas em PostgreSQL. |
-| ADMIN com login | Parcial | O Django Admin possui login e permite operar os recursos obrigatórios. O painel React próprio em `/admin`, solicitado posteriormente, ainda não existe. |
+| ADMIN com login | Concluído no código | O painel React em `/admin` possui login por sessão Django, CSRF, proteção staff, dashboard, consultas e operações comerciais. A aprovação manual completa pertence à Fase 13; o Django Admin segue como contingência. |
 | Usuário de teste no README | Pendente | O README informa o usuário padrão e explica variáveis, mas não fornece uma credencial completa e imediatamente utilizável pelo avaliador. |
-| Produtos importados no ADMIN | Concluído | Listagem somente leitura, busca, filtros e atalho para criar anúncio estão disponíveis no Django Admin. |
-| Anúncios no ADMIN | Concluído no Django Admin | É possível criar, editar, ativar e desativar, com validações de preço, promoção e estoque. A mesma operação no painel React está pendente. |
-| Menus no ADMIN | Concluído no Django Admin | Nome, ordem, status e associação ordenada de anúncios estão disponíveis. A operação no painel React está pendente. |
-| Banners no ADMIN | Concluído no Django Admin | Imagem por URL, link, texto alternativo, ordem, status e período podem ser administrados. A operação no painel React está pendente. |
-| Pedidos no ADMIN | Concluído no Django Admin | Pedidos e itens são visíveis como dados somente leitura. A consulta no painel React está pendente. |
-| Importação pelo painel | Pendente | A reimportação funciona por comando, mas ainda não há ação protegida no painel administrativo. |
+| Produtos importados no ADMIN | Concluído | A listagem somente leitura, pesquisável, filtrável e paginada está disponível no painel React. |
+| Anúncios no ADMIN | Concluído | O painel React cria, edita, ativa e desativa anúncios, com validações de preço, promoção e estoque vinculadas aos campos. |
+| Menus no ADMIN | Concluído | Nome, ordem, status e associação ordenada de anúncios são administráveis no painel React. |
+| Banners no ADMIN | Concluído | Imagem por URL, link, texto alternativo, ordem, status e período são administráveis no painel React. |
+| Pedidos no ADMIN | Concluído | Pedidos são consultáveis como dados somente leitura no painel React e no Django Admin; snapshots detalhados permanecem preservados no banco. |
+| Importação pelo painel | Concluído | A reimportação idempotente pode ser confirmada e executada no painel, que exibe novos, atualizados, total e horário de conclusão. |
 | Home, menus e banners | Concluído | A Home consome a configuração persistida no backend e possui navegação de banners por gesto e setas. |
 | Listagem e detalhe | Concluído | Catálogo geral, menus, paginação, filtros, ordenação, galeria e página de produto estão implementados. |
 | Promoções | Concluído | Preço anterior, preço vigente e percentual de desconto aparecem claramente. |
@@ -43,7 +43,7 @@ A entrega ainda não está pronta. As pendências prioritárias são o painel ad
 | Snapshots de pedido | Concluído | `OrderItem` guarda título, SKU, preço, quantidade, subtotal e imagem da compra. |
 | Estados de interface | Concluído no código | Existem estados de carregamento, vazio, erro, indisponibilidade e conflito de checkout. |
 | Responsividade mobile | Parcial | O CSS é mobile-first e possui testes de comportamento, mas a rodada manual completa em celular, teclado e leitores de tela ainda precisa ser registrada e aprovada. |
-| Migrations | Parcial | As migrations existem e `makemigrations --check` está limpo, mas duas migrations atuais ainda não estão versionadas em commit. |
+| Migrations | Concluído | As migrations existentes estão versionadas, a Fase 11 não alterou modelos e `makemigrations --check --dry-run` permanece limpo. |
 | Setup em um comando | Pendente | `docker compose up --build` cria o banco e aplica migrations, mas não importa produtos, executa `seed_demo` nem garante o usuário de teste. |
 | Modelagem no README | Pendente | A modelagem detalhada existe no plano, mas o README ainda não apresenta o diagrama ou a lista de tabelas exigida. |
 | Decisões e trade-offs no README | Pendente | As decisões existem em `/vault/decisoes`, mas precisam ser resumidas no README final. |
@@ -73,7 +73,7 @@ A entrega ainda não está pronta. As pendências prioritárias são o painel ad
 
 ## Ordem recomendada para concluir
 
-1. **Fases 11 a 13 — ADMIN React:** autenticação, consultas, operações comerciais e aprovação visual/funcional.
+1. **Fase 13 — qualidade do ADMIN React:** aprovação visual, funcional, responsiva, acessível e de concorrência.
 2. **Setup reproduzível:** fazer o comando principal importar, popular e criar o usuário de demonstração com credencial documentada e exclusivamente local.
 3. **Commitar e publicar o trabalho atual:** dividir as alterações em commits coerentes e confirmar que migrations, documentação e novos arquivos estão rastreados.
 4. **Fase 14 — Deploy:** Railway, PostgreSQL, Vercel, e-mail, CORS/CSRF/cookies e smoke test público.

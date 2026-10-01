@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.storefront.apps.StorefrontConfig",
     "apps.customers.apps.CustomersConfig",
     "apps.orders.apps.OrdersConfig",
+    "apps.backoffice.apps.BackofficeConfig",
 ]
 
 MIDDLEWARE = [

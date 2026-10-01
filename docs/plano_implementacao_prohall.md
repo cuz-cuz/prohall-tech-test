@@ -1294,6 +1294,8 @@ Critério de conclusão: administrador entra no painel próprio e consulta com s
 
 Modelo recomendado: **GPT-5.6 Sol — High**.
 
+Status em 1º de outubro de 2026: **concluída**. O painel React em `/admin` autentica usuários staff por sessão Django e CSRF, protege as rotas, apresenta dashboard operacional e oferece consultas paginadas somente leitura de produtos importados, pedidos e clientes. O Django Admin permanece disponível como contingência. A API exclui hashes, códigos temporários, fingerprints, senha e dados brutos importados. Não houve alteração de modelo nem migration. A suíte integrada foi posteriormente aprovada em PostgreSQL durante a Fase 12.
+
 ### Fase 12 — Operação comercial no painel
 
 Tarefas:
@@ -1310,6 +1312,8 @@ Tarefas:
 Critério de conclusão: a vitrine pode ser administrada pelo painel React sem editar código ou abrir o Django Admin.
 
 Modelo recomendado: **GPT-5.6 Sol — Medium**.
+
+Status em 1º de outubro de 2026: **concluída**. O painel React permite criar, editar, ativar e desativar anúncios, menus e banners; ordenar anúncios dentro de menus; agendar banners; filtrar e paginar recursos; e reexecutar a importação idempotente do DummyJSON com confirmação e resumo. As operações usam sessão staff e CSRF, exibem validações junto aos campos e não permitem excluir registros comerciais pelo painel. Não houve alteração de modelo nem migration. A suíte integrada de 77 testes backend passou em PostgreSQL; 33 testes frontend, lint e build de produção também foram aprovados.
 
 ### Fase 13 — Qualidade e aprovação do painel
 
@@ -1541,9 +1545,9 @@ O projeto estará pronto quando o avaliador conseguir, usando apenas o README:
 
 ## 33. Próximo passo imediato
 
-Executar a **Fase 11 — Fundação do painel administrativo**, seguida pelas Fases 12 e 13 antes do deploy. A auditoria completa dos requisitos e das pendências de entrega está em `docs/auditoria_requisitos.md`.
+Executar a **Fase 13 — Qualidade e aprovação do painel** antes do deploy. A auditoria completa dos requisitos e das pendências de entrega está em `docs/auditoria_requisitos.md`.
 
-Configuração recomendada para a Fase 11: **GPT-5.6 Sol — High**.
+Configuração recomendada para a Fase 13: **GPT-5.6 Sol — High**.
 
 ---
 

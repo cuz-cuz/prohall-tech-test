@@ -13,12 +13,39 @@ import { PaymentResultPage } from './pages/PaymentResultPage'
 import { MyOrdersPage } from './pages/MyOrdersPage'
 import { CustomerAccessPage } from './pages/CustomerAccessPage'
 import { CatalogPage } from './pages/CatalogPage'
+import { AdminRouteScope, AdminProtectedRoute } from './admin/AdminRouteScope'
+import { AdminLayout } from './admin/AdminLayout'
+import { AdminLoginPage } from './admin/AdminLoginPage'
+import { AdminDashboardPage } from './admin/AdminDashboardPage'
+import { AdminProductsPage } from './admin/AdminProductsPage'
+import { AdminOrdersPage } from './admin/AdminOrdersPage'
+import { AdminCustomersPage } from './admin/AdminCustomersPage'
+import { AdminListingsPage } from './admin/AdminListingsPage'
+import { AdminMenusPage } from './admin/AdminMenusPage'
+import { AdminBannersPage } from './admin/AdminBannersPage'
+import { AdminImportPage } from './admin/AdminImportPage'
 import './App.css'
+import './admin/admin.css'
 
 export default function App() {
   return (
     <CartProvider>
       <Routes>
+        <Route path="admin" element={<AdminRouteScope />}>
+          <Route path="login" element={<AdminLoginPage />} />
+          <Route element={<AdminProtectedRoute />}>
+            <Route element={<AdminLayout />}>
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="produtos" element={<AdminProductsPage />} />
+              <Route path="anuncios" element={<AdminListingsPage />} />
+              <Route path="menus" element={<AdminMenusPage />} />
+              <Route path="banners" element={<AdminBannersPage />} />
+              <Route path="importacao" element={<AdminImportPage />} />
+              <Route path="pedidos" element={<AdminOrdersPage />} />
+              <Route path="clientes" element={<AdminCustomersPage />} />
+            </Route>
+          </Route>
+        </Route>
         <Route element={<StorefrontLayout />}>
           <Route index element={<HomePage />} />
           <Route path="menu/:slug" element={<MenuPage />} />

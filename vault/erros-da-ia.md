@@ -261,3 +261,57 @@ Durante uma consulta exploratória do catálogo, foi usado o nome `$home`, que n
 ### Correção e prevenção
 
 A consulta foi repetida com o nome específico `$storefrontData`. Scripts PowerShell do projeto devem usar nomes ligados à tarefa e nunca reutilizar `$HOME`, `$home` ou outras variáveis automáticas do sistema.
+
+## 1º de outubro de 2026 — Módulos diferenciados apenas por caixa no Windows
+
+### Erro
+
+O contexto administrativo foi inicialmente dividido entre `AdminAuthContext.jsx` e `adminAuthContext.js`. Embora os nomes sejam distintos em sistemas case-sensitive, o Windows e o resolvedor do Vite trataram ambos como o mesmo caminho e o provider ficou `undefined` nos testes.
+
+### Como foi percebido
+
+Os cinco testes iniciais do painel falharam ao renderizar `AdminRouteScope`, informando que o tipo do elemento era inválido.
+
+### Correção e prevenção
+
+O módulo que contém apenas o contexto foi renomeado para `AdminAuthState.js`, eliminando a ambiguidade. Em projetos multiplataforma, arquivos irmãos nunca devem depender somente de diferenças entre maiúsculas e minúsculas; usar nomes semanticamente distintos e validar a montagem das rotas logo após criar a estrutura.
+
+## 1º de outubro de 2026 — Operador de Bash em comando PowerShell
+
+### Erro
+
+Uma varredura final tentou usar `||` para tratar a ausência de resultados do `rg`. A versão do PowerShell desta máquina não reconhece esse operador, e o comando parou antes de executar qualquer verificação.
+
+### Correção e prevenção
+
+A checagem foi repetida tratando `$LASTEXITCODE` com um bloco `if`, sem misturar sintaxe de shells. Em comandos PowerShell, resultados nulos de ferramentas nativas devem ser tratados com construções do próprio PowerShell e nunca com operadores condicionais de Bash.
+
+## 1º de outubro de 2026 — Método criptográfico indisponível não interrompeu o PowerShell
+
+### Erro
+
+Ao gerar uma senha administrativa local, foi chamado o método estático `RandomNumberGenerator.Fill()`, indisponível no runtime PowerShell desta máquina. Como o script não estava com parada global por erro, a execução continuou com o vetor de bytes ainda zerado e chegou a definir uma senha previsível.
+
+### Correção e prevenção
+
+A senha foi sobrescrita imediatamente, antes da entrega ao responsável, usando a API compatível `RandomNumberGenerator.Create().GetBytes()`. O novo hash foi verificado e apenas a nova senha segura foi colocada na área de transferência. Scripts que geram credenciais devem usar `$ErrorActionPreference = 'Stop'`, verificar a disponibilidade da API ou utilizar o padrão compatível por instância, e nunca continuar após uma falha do gerador aleatório.
+
+## 1º de outubro de 2026 — Varredura documental no diretório errado
+
+### Erro
+
+Uma checagem com `rg` foi executada a partir de `frontend/` usando caminhos relativos à raiz do repositório, por isso os três arquivos de documentação não foram encontrados. O lint que fazia parte do mesmo comando foi executado normalmente.
+
+### Correção e prevenção
+
+A busca foi repetida a partir da raiz do projeto e confirmou que os números antigos estavam apenas no registro histórico da Fase 11. Em comandos que misturam arquivos de áreas diferentes, fixar o diretório de trabalho na raiz ou usar caminhos absolutos validados antes da execução.
+
+## 1º de outubro de 2026 — Expressão regular mal escapada no PowerShell
+
+### Erro
+
+A primeira varredura pré-commit de possíveis segredos combinou aspas e barras invertidas de uma expressão regular dentro de uma string PowerShell, causando erro de análise antes da execução.
+
+### Correção e prevenção
+
+A verificação foi repetida com padrões menores passados em argumentos literais separados para o `rg`. Em PowerShell, varreduras complexas devem preferir múltiplas opções `-e` com aspas simples, evitando uma única expressão com níveis concorrentes de escape.
