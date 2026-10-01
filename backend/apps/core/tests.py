@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 
 
@@ -36,3 +36,15 @@ class HealthCheckTests(SimpleTestCase):
         )
 
         self.assertNotIn("Access-Control-Allow-Origin", response.headers)
+
+    @override_settings(SECURE_SSL_REDIRECT=True)
+    def test_health_check_answers_plain_http_when_ssl_redirect_is_enabled(self):
+        response = self.client.get(reverse("core:health"))
+
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(SECURE_SSL_REDIRECT=True)
+    def test_other_routes_still_redirect_plain_http(self):
+        response = self.client.get("/api/storefront/")
+
+        self.assertEqual(response.status_code, 301)

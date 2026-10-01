@@ -29,6 +29,7 @@ const homePayload = {
     pix_discount_percentage: '10.00',
     max_installments: 12,
     free_shipping_minimum: '199.00',
+    shipping_fee: '19.90',
   },
 }
 
@@ -102,7 +103,12 @@ const approvedOrder = {
   public_id: 'f7a59439-d694-42de-b03f-4e86ec3ebd61',
   status: 'payment_approved',
   payment_status: 'approved',
+  payment_method: 'card',
   subtotal: '429.00',
+  product_discount: '170.00',
+  pix_discount: '0.00',
+  shipping_fee: '0.00',
+  shipping_saved: '19.90',
   total: '429.00',
   payment_last_four: '4242',
   customer: { name: 'Ana Lima', email: 'ana@example.com' },
@@ -404,6 +410,7 @@ describe('Mosaico storefront', () => {
     )
 
     await screen.findByRole('heading', { level: 1, name: /todos os produtos/i })
+    fireEvent.click(screen.getByRole('button', { name: /filtrar e ordenar/i }))
     fireEvent.click(screen.getByLabelText(/maior preço/i))
     fireEvent.click(screen.getByRole('checkbox', { name: /frete grátis/i }))
     fireEvent.click(screen.getByRole('button', { name: /aplicar filtros/i }))
@@ -512,18 +519,161 @@ describe('Mosaico storefront', () => {
     expect(
       await screen.findByRole('heading', { name: /pagamento aprovado/i }),
     ).toBeInTheDocument()
-    expect(screen.getByText(/R\$\s*429,00/)).toBeInTheDocument()
+    const receipt = screen.getByRole('region', { name: /resumo do pedido/i })
+    expect(within(receipt).getByText('Total').closest('div')).toHaveTextContent(/R\$\s*429,00/)
+    expect(screen.getByText(/cartão final 4242/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /carrinho com 0 itens/i })).toBeInTheDocument()
 
     const checkoutCall = fetch.mock.calls.find(([url]) => url.includes('/orders/checkout/'))
     const submitted = JSON.parse(checkoutCall[1].body)
     expect(checkoutCall[1].headers['X-CSRFToken']).toBe('test-csrf-token')
-    expect(submitted.payment).toEqual({ card_last_four: '4242' })
+    expect(submitted.payment).toEqual({ method: 'card', card_last_four: '4242' })
     expect(submitted).not.toHaveProperty('card_number')
     expect(submitted.items).toEqual([
       { listing_id: 1, quantity: 1, expected_unit_price: '429.00' },
     ])
     expect(submitted.idempotency_key).toMatch(/^[0-9a-f-]{36}$/i)
+  })
+
+  it('opens filters in a dialog and discards edits closed without applying', async () => {
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/produtos']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('heading', { level: 1, name: /todos os produtos/i })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText(/ordenado por/i)).toHaveTextContent(/mais vendidos/i)
+
+    fireEvent.click(screen.getByRole('button', { name: /filtrar e ordenar/i }))
+    const dialog = screen.getByRole('dialog', { name: /filtros e ordenação/i })
+    fireEvent.click(within(dialog).getByLabelText(/menor preço/i))
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /filtrar e ordenar/i }))
+    expect(within(screen.getByRole('dialog')).getByLabelText(/mais vendidos/i)).toBeChecked()
+    expect(fetch.mock.calls.some(([url]) => url.includes('ordering=price_asc'))).toBe(false)
+  })
+
+  it('scrolls to the top when opening a product page', async () => {
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/produtos']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('heading', { level: 1, name: /todos os produtos/i })
+    window.scrollTo.mockClear()
+    fireEvent.click((await screen.findAllByRole('link', { name: /cafeteira espresso/i }))[0])
+
+    expect(await screen.findByRole('heading', { level: 1, name: /cafeteira espresso/i })).toBeInTheDocument()
+    expect(window.scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }))
+  })
+
+  it('breaks the checkout summary into discounts and saved shipping', async () => {
+    persistProductInCart()
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const summary = await screen.findByRole('complementary', { name: /resumo do pedido/i })
+    await within(summary).findByText('Frete economizado')
+    const row = (label) => within(summary).getByText(label).closest('div')
+    expect(row('Produtos')).toHaveTextContent(/R\$\s*599,00/)
+    expect(row('Descontos em promoções')).toHaveTextContent(/R\$\s*170,00/)
+    expect(row('Frete')).toHaveTextContent(/grátis/i)
+    expect(row('Frete economizado')).toHaveTextContent(/R\$\s*19,90/)
+    expect(row('Total')).toHaveTextContent(/R\$\s*429,00/)
+    expect(within(summary).getByText(/você economiza/i)).toHaveTextContent(/R\$\s*189,90/)
+  })
+
+  it('charges the configured shipping fee below the free shipping minimum', async () => {
+    persistProductInCart()
+    mockSuccessfulApi(undefined, { free_shipping_minimum: '500.00' })
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    const summary = await screen.findByRole('complementary', { name: /resumo do pedido/i })
+    await within(summary).findByText(/R\$\s*448,90/)
+    expect(within(summary).getByText('Frete').closest('div')).toHaveTextContent(/R\$\s*19,90/)
+    expect(within(summary).queryByText('Frete economizado')).not.toBeInTheDocument()
+  })
+
+  it('simulates a paid Pix with the advertised discount', async () => {
+    persistProductInCart()
+    mockSuccessfulApi({
+      ...approvedOrder,
+      payment_method: 'pix',
+      payment_last_four: '',
+      pix_discount: '42.90',
+      total: '386.10',
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nome completo/i), { target: { value: 'Ana Lima' } })
+    fireEvent.change(screen.getByLabelText(/e-mail/i), { target: { value: 'ana@example.com' } })
+    fireEvent.click(screen.getByRole('radio', { name: /pix/i }))
+
+    expect(screen.queryByLabelText(/final fictício do cartão/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /qr code ilustrativo/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/pix copia e cola/i).value).toMatch(/^MOSAICO-PIX-SIMULADO-/)
+    const summary = screen.getByRole('complementary', { name: /resumo do pedido/i })
+    expect(within(summary).getByText(/desconto pix \(10%\)/i).closest('div')).toHaveTextContent(/R\$\s*42,90/)
+    expect(within(summary).getByText('Total no Pix').closest('div')).toHaveTextContent(/R\$\s*386,10/)
+
+    fireEvent.click(screen.getByRole('button', { name: /simular pix pago/i }))
+
+    expect(await screen.findByRole('heading', { name: /pagamento aprovado/i })).toBeInTheDocument()
+    expect(screen.getByText('Pix', { selector: 'dd' })).toBeInTheDocument()
+    const checkoutCall = fetch.mock.calls.find(([url]) => url.includes('/orders/checkout/'))
+    expect(JSON.parse(checkoutCall[1].body).payment).toEqual({ method: 'pix', pix_outcome: 'paid' })
+  })
+
+  it('simulates an expired Pix as a declined payment', async () => {
+    persistProductInCart()
+    mockSuccessfulApi({
+      ...approvedOrder,
+      status: 'payment_declined',
+      payment_status: 'declined',
+      payment_method: 'pix',
+      payment_last_four: '',
+      pix_discount: '42.90',
+      total: '386.10',
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/checkout']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nome completo/i), { target: { value: 'Ana Lima' } })
+    fireEvent.change(screen.getByLabelText(/e-mail/i), { target: { value: 'ana@example.com' } })
+    fireEvent.click(screen.getByRole('radio', { name: /pix/i }))
+    fireEvent.click(screen.getByRole('button', { name: /simular pix expirado/i }))
+
+    expect(await screen.findByRole('heading', { name: /pagamento recusado/i })).toBeInTheDocument()
+    const checkoutCall = fetch.mock.calls.find(([url]) => url.includes('/orders/checkout/'))
+    expect(JSON.parse(checkoutCall[1].body).payment).toEqual({ method: 'pix', pix_outcome: 'expired' })
   })
 
   it('keeps the cart available after a declined payment', async () => {

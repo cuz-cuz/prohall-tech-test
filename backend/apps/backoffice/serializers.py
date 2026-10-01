@@ -127,6 +127,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "customer_email",
             "status",
             "payment_status",
+            "payment_method",
             "total",
             "item_count",
             "created_at",

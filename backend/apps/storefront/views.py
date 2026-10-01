@@ -50,6 +50,7 @@ class HomeView(PublicAPIViewMixin, APIView):
                 "commercial_terms": {
                     "pix_discount_percentage": str(settings.PIX_DISCOUNT_PERCENT),
                     "max_installments": settings.MAX_INSTALLMENTS,
+                    "shipping_fee": format(settings.SHIPPING_FEE, ".2f"),
                     "free_shipping_minimum": format(
                         StoreSettings.load().free_shipping_minimum, ".2f"
                     ),

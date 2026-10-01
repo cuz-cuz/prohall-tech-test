@@ -13,8 +13,9 @@ export const config = {
   framework: 'vite',
   rewrites: [
     {
-      source: '/api/:path*',
-      destination: `${apiOrigin.origin}/api/:path*`,
+      // Regex instead of :path* so Django's trailing slashes are preserved.
+      source: '/api/(.*)',
+      destination: `${apiOrigin.origin}/api/$1`,
     },
     {
       source: '/(.*)',

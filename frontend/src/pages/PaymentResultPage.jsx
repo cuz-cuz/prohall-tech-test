@@ -1,9 +1,11 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useOutletContext } from 'react-router-dom'
 
-import { formatCurrency } from '../utils/formatters'
+import { OrderTotals } from '../components/OrderTotals'
+import { orderBreakdownFromOrder } from '../utils/orderBreakdown'
 
 export function PaymentResultPage() {
   const { state } = useLocation()
+  const { homeState } = useOutletContext()
   const order = state?.order
 
   if (!order) {
@@ -46,14 +48,14 @@ export function PaymentResultPage() {
           <dd>{order.public_id}</dd>
         </div>
         <div>
-          <dt>Total</dt>
-          <dd>{formatCurrency(order.total)}</dd>
-        </div>
-        <div>
-          <dt>Referência do pagamento</dt>
-          <dd>final {order.payment_last_four}</dd>
+          <dt>Forma de pagamento</dt>
+          <dd>{order.payment_method === 'pix' ? 'Pix' : `Cartão final ${order.payment_last_four}`}</dd>
         </div>
       </dl>
+
+      <section className="result-page__totals" aria-label="Resumo do pedido">
+        <OrderTotals breakdown={orderBreakdownFromOrder(order, homeState.data?.commercial_terms)} />
+      </section>
 
       <div className="result-page__actions">
         {approved ? (

@@ -946,3 +946,52 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - 104 testes backend e 50 testes frontend aprovados;
 - lint, build frontend e `makemigrations --check --dry-run` aprovados;
 - nenhum upload real foi executado porque o token S3 e a URL pública definitiva do R2 ainda não foram definidos.
+
+## 1º de outubro de 2026 — Publicação no Railway e na Vercel
+
+### Ambientes
+
+- projeto `mosaico` criado no Railway com PostgreSQL e serviço `backend` em `https://backend-production-2a5f.up.railway.app`;
+- projeto `mosaico` criado na Vercel em `https://mosaico-alpha.vercel.app`, com `RAILWAY_API_ORIGIN` em Production e Preview;
+- pre-deploy `python manage.py migrate` e healthcheck `/api/health/` aplicados ao serviço pela API do Railway, porque o `railway.json` enviado pela CLI foi reconhecido mas não aplicado;
+- `import_products` e `seed_demo` executados por `railway ssh`: 46 produtos, 45 anúncios, 8 menus, 3 banners e administrador;
+- sem SMTP definido, produção usa `dummy.EmailBackend`; o acesso do cliente por código fica indisponível até configurar SMTP;
+- R2 ativo no bucket `mosaico-media` com URL pública `r2.dev` provisória, por falta de domínio próprio na conta; a troca futura exige apenas `R2_PUBLIC_BASE_URL`;
+- token S3 `mosaico-media-railway` limitado ao bucket e cadastrado somente no Railway; como as chaves passaram pelo histórico da sessão, devem ser rotacionadas.
+
+### Correções
+
+- proxy da Vercel trocado de `/api/:path*` para `/api/(.*)`, preservando as barras finais exigidas pelo Django;
+- `/api/health/` isento do redirecionamento HTTPS para o healthcheck interno do Railway;
+- `.gitignore` do frontend ignora `.vercel` e `.env*.local` sem esconder `.env.example`.
+
+### Validação
+
+- healthcheck 200 direto no Railway e pelo proxy da Vercel;
+- home, listagem (45 anúncios), login administrativo, painel e status de restauração respondem pelo proxy;
+- Django Admin e estáticos servidos no Railway;
+- upload real de PNG pelo proxy retornou 201 e a URL pública abriu com `image/png`; o objeto de teste foi removido do bucket;
+- 6 testes de `core`, incluindo os dois novos do redirecionamento, aprovados.
+
+## 1º de outubro de 2026 — Ajustes da vitrine no celular, Pix e resumo do pedido
+
+### Pedido do responsável
+
+- banners deixaram de ser recortados: a imagem agora é encaixada inteira no espaço reservado (`object-fit: contain`);
+- o painel de filtros virou um botão compacto "Filtrar e ordenar", com contador de filtros ativos, que abre um modal (folha inferior no celular, painel central no desktop); alterações só valem ao clicar em "Aplicar filtros", e fechar descarta o rascunho;
+- navegação para outra página passa a abrir no topo; voltar e avançar no navegador preservam a posição restaurada pelo próprio navegador;
+- checkout ganhou escolha entre cartão e Pix, com QR code ilustrativo, código copia e cola fictício e botões para simular Pix pago ou expirado;
+- carrinho, checkout, resultado do pagamento e "Meus pedidos" mostram produtos a preço cheio, descontos em promoções, desconto Pix, frete ou frete grátis, frete economizado, total e economia total.
+
+### Backend
+
+- migration `orders.0004_order_payment_method_and_breakdown` adiciona forma de pagamento, descontos e frete ao pedido, com constraints para o total, os valores não negativos e a coerência entre forma de pagamento e referência;
+- `SHIPPING_FEE` configurável, exposto em `commercial_terms`;
+- Django Admin e painel de pedidos exibem a forma de pagamento.
+
+### Validação
+
+- 114 testes backend e 56 testes frontend aprovados; lint, build e `makemigrations --check` aprovados;
+- telas conferidas em 390 px com Chrome headless: banner inteiro, barra de filtros, modal, checkout com cartão e Pix;
+- abrir o último produto de uma listagem rolada até 10.130 px levou a página do produto ao topo (`scrollY` 0);
+- o teste de foco do alerta de estoque falhou uma vez e passou nas duas execuções seguintes; fica registrado como possível instabilidade.

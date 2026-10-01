@@ -8,7 +8,8 @@ Este roteiro publica o backend Django e o PostgreSQL no Railway e o frontend Rea
 2. Adicione um serviço a partir do repositório GitHub e defina **Root Directory** como `backend`.
 3. Gere um domínio público para o serviço Django.
 4. Configure **Pre-deploy Command** como `python manage.py migrate` e o timeout como 300 segundos.
-5. Configure **Healthcheck Path** como `/api/health/`. Inclua `healthcheck.railway.app` em `ALLOWED_HOSTS`.
+5. Configure **Healthcheck Path** como `/api/health/`. Inclua `healthcheck.railway.app` em `ALLOWED_HOSTS`. O healthcheck chega por HTTP interno; por isso `/api/health/` é a única rota isenta de `SECURE_SSL_REDIRECT` (`SECURE_REDIRECT_EXEMPT`).
+   Pela CLI, essas duas configurações podem ser aplicadas com `railway api` e a mutation `serviceInstanceUpdate` (`preDeployCommand` e `healthcheckPath`).
 6. O `Dockerfile` coleta os arquivos estáticos e inicia Gunicorn na variável `PORT` fornecida pelo Railway.
 
 Variáveis obrigatórias do backend, substituindo os domínios de exemplo:
@@ -26,6 +27,7 @@ SECURE_SSL_REDIRECT=True
 SECURE_HSTS_SECONDS=3600
 SECURE_HSTS_INCLUDE_SUBDOMAINS=False
 SECURE_HSTS_PRELOAD=False
+SHIPPING_FEE=19.90
 DEMO_ADMIN_USERNAME=admin
 DEMO_ADMIN_EMAIL=<email-de-demonstracao>
 DEMO_ADMIN_PASSWORD=<senha-exclusiva-do-ambiente>
@@ -40,6 +42,7 @@ R2_PUBLIC_BASE_URL=https://media.seudominio.com
 R2_MAX_UPLOAD_BYTES=8388608
 R2_MAX_IMAGE_PIXELS=40000000
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# Sem SMTP: django.core.mail.backends.dummy.EmailBackend (descarta os códigos; nunca use console, que os grava em log)
 DEFAULT_FROM_EMAIL=<remetente-validado>
 EMAIL_HOST=<servidor-smtp>
 EMAIL_PORT=587
@@ -73,6 +76,7 @@ O segundo comando usa as variáveis `DEMO_ADMIN_*`; a senha não deve aparecer n
 2. Mantenha o preset Vite, o comando `npm run build` e a saída `dist`.
 3. Cadastre `RAILWAY_API_ORIGIN=https://<backend>.up.railway.app` nos ambientes Production e Preview.
 4. Não defina `VITE_API_BASE_URL` em produção: o frontend usa `/api`, e `vercel.mjs` encaminha esse caminho ao Railway antes do fallback da SPA.
+   Em deploy pela CLI (`vercel --prod`), o `vercel.mjs` é compilado na máquina local; exporte `RAILWAY_API_ORIGIN` no shell antes do comando.
 5. Publique e copie o domínio final da Vercel para `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` e `CSRF_TRUSTED_ORIGINS` no Railway; então faça um novo deploy do backend.
 
 O proxy mantém os cookies de sessão como primeira parte no domínio da loja. Se o frontend acessar o Railway diretamente em vez de usar `/api`, será necessário `SameSite=None`, e navegadores podem bloquear a sessão como cookie de terceiros.

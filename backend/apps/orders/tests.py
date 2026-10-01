@@ -523,7 +523,7 @@ class CheckoutAdditionalAPITests(CheckoutAPITests):
         )
         self.assertEqual(response.data["subtotal"], "533.01")
 
-    def test_database_rejects_total_different_from_subtotal(self):
+    def test_database_rejects_total_different_from_breakdown(self):
         response = self.client.post(
             self.url,
             self.payload(quantity=1),
@@ -552,6 +552,93 @@ class CheckoutAdditionalAPITests(CheckoutAPITests):
         self.assertEqual(item.listing_title, "Secador profissional")
         self.assertEqual(item.unit_price, Decimal("99.90"))
         self.assertEqual(item.subtotal, Decimal("99.90"))
+
+
+class CheckoutPaymentMethodTests(CheckoutAPITests):
+    def pix_payload(self, *, outcome="paid", quantity=2):
+        payload = self.payload(quantity=quantity)
+        payload["payment"] = {"method": "pix", "pix_outcome": outcome}
+        return payload
+
+    def test_paid_pix_applies_discount_and_reduces_stock(self):
+        response = self.client.post(self.url, self.pix_payload(), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["payment_status"], "approved")
+        self.assertEqual(response.data["payment_method"], "pix")
+        self.assertEqual(response.data["payment_last_four"], "")
+        self.assertEqual(response.data["subtotal"], "199.80")
+        # (120.00 - 99.90) x 2 saved by the promotion.
+        self.assertEqual(response.data["product_discount"], "40.20")
+        self.assertEqual(response.data["pix_discount"], "19.98")
+        # The free shipping minimum is checked against the products, before Pix.
+        self.assertEqual(response.data["shipping_fee"], "0.00")
+        self.assertEqual(response.data["shipping_saved"], "19.90")
+        self.assertEqual(response.data["total"], "179.82")
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.stock_quantity, 3)
+
+    def test_expired_pix_is_declined_and_keeps_stock(self):
+        response = self.client.post(
+            self.url, self.pix_payload(outcome="expired"), format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["payment_status"], "declined")
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.stock_quantity, 5)
+
+    def test_card_order_below_minimum_pays_shipping_without_pix_discount(self):
+        response = self.client.post(self.url, self.payload(quantity=1), format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["payment_method"], "card")
+        self.assertEqual(response.data["pix_discount"], "0.00")
+        self.assertEqual(response.data["shipping_fee"], "19.90")
+        self.assertEqual(response.data["shipping_saved"], "0.00")
+        self.assertEqual(response.data["total"], "119.80")
+
+    @override_settings(SHIPPING_FEE=Decimal("7.50"))
+    def test_shipping_fee_follows_the_configured_value(self):
+        response = self.client.post(self.url, self.payload(quantity=1), format="json")
+
+        self.assertEqual(response.data["shipping_fee"], "7.50")
+        self.assertEqual(response.data["total"], "107.40")
+
+    def test_payment_fields_must_match_the_method(self):
+        invalid_payments = (
+            {"method": "pix", "pix_outcome": "paid", "card_last_four": "4242"},
+            {"method": "pix"},
+            {"method": "card"},
+            {"method": "card", "card_last_four": "4242", "pix_outcome": "paid"},
+            {"method": "boleto", "card_last_four": "4242"},
+        )
+        for payment in invalid_payments:
+            with self.subTest(payment=payment):
+                payload = self.payload()
+                payload["payment"] = payment
+                response = self.client.post(self.url, payload, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Order.objects.exists())
+
+    def test_changing_the_payment_method_under_the_same_key_conflicts(self):
+        key = uuid.uuid4()
+        self.client.post(self.url, self.payload(key=key), format="json")
+        payload = self.pix_payload()
+        payload["idempotency_key"] = str(key)
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_database_rejects_pix_discount_on_card_orders(self):
+        response = self.client.post(self.url, self.payload(), format="json")
+        order = Order.objects.get(public_id=response.data["public_id"])
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Order.objects.filter(pk=order.pk).update(
+                pix_discount=Decimal("1.00"), total=order.total - Decimal("1.00")
+            )
 
 
 class CheckoutConcurrencyTests(TransactionTestCase):

@@ -47,7 +47,7 @@ export function AdminOrdersPage() {
                       <td><strong>{order.customer_name}</strong><small>{order.customer_email}</small></td>
                       <td><span className={`admin-status admin-status--${order.payment_status}`}>{orderStatusLabels[order.status] ?? order.status}</span></td>
                       <td>{order.item_count}</td>
-                      <td><strong>{formatCurrency(order.total)}</strong></td>
+                      <td><strong>{formatCurrency(order.total)}</strong><small>{order.payment_method === 'pix' ? 'Pix' : 'Cartão'}</small></td>
                       <td><time dateTime={order.created_at}>{formatAdminDateTime(order.created_at)}</time></td>
                     </tr>
                   ))}

@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest'
+import { vi } from 'vitest'
+
+// jsdom does not implement scrolling; the storefront scrolls to the top on navigation.
+window.scrollTo = vi.fn()
 
 const storedValues = new Map()
 

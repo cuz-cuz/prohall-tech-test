@@ -42,7 +42,37 @@ class CheckoutItemSerializer(StrictSerializer):
 
 
 class CheckoutPaymentSerializer(StrictSerializer):
-    card_last_four = serializers.RegexField(r"^\d{4}$")
+    method = serializers.ChoiceField(
+        choices=Order.PaymentMethod.choices,
+        default=Order.PaymentMethod.CARD,
+    )
+    card_last_four = serializers.RegexField(r"^\d{4}$", required=False)
+    # Simulated Pix outcome, playing the role of the 4242/0000 card digits.
+    pix_outcome = serializers.ChoiceField(
+        choices=(("paid", "Pago"), ("expired", "Expirado")),
+        required=False,
+    )
+
+    def validate(self, attrs):
+        if attrs["method"] == Order.PaymentMethod.CARD:
+            if "pix_outcome" in attrs:
+                raise serializers.ValidationError(
+                    {"pix_outcome": ["Use este campo somente com Pix."]}
+                )
+            if "card_last_four" not in attrs:
+                raise serializers.ValidationError(
+                    {"card_last_four": ["Informe o final fictício do cartão."]}
+                )
+        else:
+            if "card_last_four" in attrs:
+                raise serializers.ValidationError(
+                    {"card_last_four": ["Pix não usa dados de cartão."]}
+                )
+            if "pix_outcome" not in attrs:
+                raise serializers.ValidationError(
+                    {"pix_outcome": ["Informe o resultado simulado do Pix."]}
+                )
+        return attrs
 
 
 class CheckoutSerializer(StrictSerializer):
@@ -87,7 +117,12 @@ class OrderSerializer(serializers.ModelSerializer):
             "public_id",
             "status",
             "payment_status",
+            "payment_method",
             "subtotal",
+            "product_discount",
+            "pix_discount",
+            "shipping_fee",
+            "shipping_saved",
             "total",
             "payment_last_four",
             "customer",

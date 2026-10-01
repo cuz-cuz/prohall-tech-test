@@ -175,6 +175,8 @@ if CSRF_COOKIE_SAMESITE not in valid_same_site_values:
     )
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
+# O healthcheck do Railway chama o container por HTTP interno e trata 301 como falha.
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
 SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
     "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False
@@ -195,12 +197,16 @@ DUMMYJSON_PAGE_SIZE = int(os.getenv("DUMMYJSON_PAGE_SIZE", "50"))
 
 FREE_SHIPPING_MINIMUM = env_decimal("FREE_SHIPPING_MINIMUM", "199.00")
 PIX_DISCOUNT_PERCENT = env_decimal("PIX_DISCOUNT_PERCENT", "10.00")
+# Flat simulated delivery fee, waived once the order reaches the free shipping minimum.
+SHIPPING_FEE = env_decimal("SHIPPING_FEE", "19.90")
 MAX_INSTALLMENTS = int(os.getenv("MAX_INSTALLMENTS", "12"))
 
 if FREE_SHIPPING_MINIMUM <= 0:
     raise ImproperlyConfigured("FREE_SHIPPING_MINIMUM must be greater than zero.")
 if not Decimal("0") <= PIX_DISCOUNT_PERCENT < Decimal("100"):
     raise ImproperlyConfigured("PIX_DISCOUNT_PERCENT must be between 0 and 100.")
+if SHIPPING_FEE < 0:
+    raise ImproperlyConfigured("SHIPPING_FEE cannot be negative.")
 if MAX_INSTALLMENTS < 1:
     raise ImproperlyConfigured("MAX_INSTALLMENTS must be at least one.")
 

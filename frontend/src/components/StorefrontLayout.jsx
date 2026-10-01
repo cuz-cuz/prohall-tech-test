@@ -1,9 +1,24 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigationType } from 'react-router-dom'
 
 import { SearchForm } from './SearchForm'
 import { useCart } from '../cart/useCart'
 import { useApiResource } from '../hooks/useApiResource'
 import { getStorefrontHome } from '../services/api'
+
+// A SPA keeps the previous page's scroll position, so a link clicked near the
+// footer would open the next page at the footer too. Back/forward (POP) is left
+// alone so the browser can restore where the visitor was.
+function ScrollToTopOnNavigate() {
+  const { pathname, search } = useLocation()
+  const navigationType = useNavigationType()
+
+  useEffect(() => {
+    if (navigationType !== 'POP') window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [pathname, search, navigationType])
+
+  return null
+}
 
 export function StorefrontLayout() {
   const homeState = useApiResource(getStorefrontHome)
@@ -17,6 +32,7 @@ export function StorefrontLayout() {
 
   return (
     <div className="site-frame">
+      <ScrollToTopOnNavigate />
       <a className="skip-link" href="#conteudo-principal">
         Pular para o conteúdo
       </a>

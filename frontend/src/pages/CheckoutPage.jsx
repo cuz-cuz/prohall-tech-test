@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 
 import { useCart } from '../cart/useCart'
+import { OrderTotals } from '../components/OrderTotals'
+import { PixSimulation } from '../components/PixSimulation'
 import { checkoutOrder } from '../services/api'
 import { currencyToCents, formatCurrencyFromCents } from '../utils/formatters'
 import { createIdempotencyKey } from '../utils/idempotency'
+import { calculateOrderBreakdown } from '../utils/orderBreakdown'
 
 function checkoutErrorMessage(error) {
   const messages = {
@@ -28,10 +31,15 @@ function checkoutErrorMessage(error) {
 }
 
 export function CheckoutPage() {
-  const { items, subtotalCents, clearCart } = useCart()
+  const { items, clearCart } = useCart()
+  const { homeState } = useOutletContext()
+  const terms = homeState.data?.commercial_terms
   const navigate = useNavigate()
   const [idempotencyKey] = useState(createIdempotencyKey)
   const [form, setForm] = useState({ name: '', email: '', cardLastFour: '' })
+  const [paymentMethod, setPaymentMethod] = useState('card')
+  // Set by whichever Pix button submitted the form: paid or expired.
+  const pixOutcomeRef = useRef('paid')
   const [status, setStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [errorCode, setErrorCode] = useState('')
@@ -41,6 +49,8 @@ export function CheckoutPage() {
   useEffect(() => {
     if (errorMessage) errorRef.current?.focus()
   }, [errorMessage])
+
+  const breakdown = calculateOrderBreakdown(items, { method: paymentMethod, terms })
 
   if (!items.length) {
     return (
@@ -80,7 +90,9 @@ export function CheckoutPage() {
           quantity: item.quantity,
           expected_unit_price: item.effective_price,
         })),
-        payment: { card_last_four: form.cardLastFour },
+        payment: paymentMethod === 'pix'
+          ? { method: 'pix', pix_outcome: pixOutcomeRef.current }
+          : { method: 'card', card_last_four: form.cardLastFour },
         idempotency_key: idempotencyKey,
       })
       if (order.payment_status === 'approved') clearCart()
@@ -138,43 +150,68 @@ export function CheckoutPage() {
 
           <fieldset disabled={isSubmitting}>
             <legend>Pagamento simulado</legend>
-            <p className="checkout-form__note">
-              Este ambiente não recebe dados reais de cartão. Informe somente
-              quatro dígitos fictícios.
-            </p>
-            <label className="form-field" htmlFor="checkout-card-last-four">
-              <span>Final fictício do cartão (4 dígitos)</span>
-              <input
-                id="checkout-card-last-four"
-                name="cardLastFour"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                pattern="[0-9]{4}"
-                maxLength="4"
-                value={form.cardLastFour}
-                onChange={updateField}
-                aria-describedby="payment-simulation-help"
-                required
-              />
-            </label>
-            <div id="payment-simulation-help" className="simulation-help">
-              <span>Use 4242 para aprovar ou 0000 para recusar.</span>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setForm((current) => ({ ...current, cardLastFour: '4242' }))}
-                >
-                  Preencher aprovação
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm((current) => ({ ...current, cardLastFour: '0000' }))}
-                >
-                  Preencher recusa
-                </button>
-              </div>
+            <div className="payment-method-picker" role="radiogroup" aria-label="Forma de pagamento">
+              <label className={paymentMethod === 'card' ? 'is-selected' : ''}>
+                <input type="radio" name="paymentMethod" value="card" checked={paymentMethod === 'card'} onChange={() => setPaymentMethod('card')} />
+                <strong>Cartão de crédito</strong>
+                <small>Parcelado sem juros</small>
+              </label>
+              <label className={paymentMethod === 'pix' ? 'is-selected' : ''}>
+                <input type="radio" name="paymentMethod" value="pix" checked={paymentMethod === 'pix'} onChange={() => setPaymentMethod('pix')} />
+                <strong>Pix</strong>
+                <small>{Number(breakdown.pixPercentage).toLocaleString('pt-BR')}% de desconto</small>
+              </label>
             </div>
+
+            {paymentMethod === 'card' ? (
+              <>
+                <p className="checkout-form__note">
+                  Este ambiente não recebe dados reais de cartão. Informe somente
+                  quatro dígitos fictícios.
+                </p>
+                <label className="form-field" htmlFor="checkout-card-last-four">
+                  <span>Final fictício do cartão (4 dígitos)</span>
+                  <input
+                    id="checkout-card-last-four"
+                    name="cardLastFour"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    pattern="[0-9]{4}"
+                    maxLength="4"
+                    value={form.cardLastFour}
+                    onChange={updateField}
+                    aria-describedby="payment-simulation-help"
+                    required
+                  />
+                </label>
+                <div id="payment-simulation-help" className="simulation-help">
+                  <span>Use 4242 para aprovar ou 0000 para recusar.</span>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setForm((current) => ({ ...current, cardLastFour: '4242' }))}
+                    >
+                      Preencher aprovação
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((current) => ({ ...current, cardLastFour: '0000' }))}
+                    >
+                      Preencher recusa
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="checkout-form__note">
+                  Nenhum Pix real é gerado. O QR code e o código abaixo são
+                  fictícios; escolha abaixo se o pagamento é confirmado ou expira.
+                </p>
+                <PixSimulation reference={idempotencyKey} totalCents={breakdown.totalCents} />
+              </>
+            )}
           </fieldset>
 
           {errorMessage ? (
@@ -187,13 +224,34 @@ export function CheckoutPage() {
             </div>
           ) : null}
 
-          <button
-            className="button button--primary checkout-submit"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Processando pedido…' : 'Confirmar pedido'}
-          </button>
+          {paymentMethod === 'pix' ? (
+            <div className="checkout-pix-actions">
+              <button
+                className="button button--primary checkout-submit"
+                type="submit"
+                disabled={isSubmitting}
+                onClick={() => { pixOutcomeRef.current = 'paid' }}
+              >
+                {isSubmitting ? 'Processando pedido…' : 'Simular Pix pago'}
+              </button>
+              <button
+                className="button button--secondary"
+                type="submit"
+                disabled={isSubmitting}
+                onClick={() => { pixOutcomeRef.current = 'expired' }}
+              >
+                Simular Pix expirado
+              </button>
+            </div>
+          ) : (
+            <button
+              className="button button--primary checkout-submit"
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Processando pedido…' : 'Confirmar pedido'}
+            </button>
+          )}
         </form>
 
         <aside
@@ -213,10 +271,7 @@ export function CheckoutPage() {
               </li>
             ))}
           </ul>
-          <div className="checkout-summary__total">
-            <span>Total</span>
-            <strong>{formatCurrencyFromCents(subtotalCents)}</strong>
-          </div>
+          <OrderTotals breakdown={breakdown} totalLabel={paymentMethod === 'pix' ? 'Total no Pix' : 'Total'} />
           <p>O backend confirmará preços e estoque antes de registrar o pedido.</p>
           <Link to="/carrinho">Voltar ao carrinho</Link>
         </aside>

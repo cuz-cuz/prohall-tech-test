@@ -1,6 +1,7 @@
 import { Link, useOutletContext } from 'react-router-dom'
 
 import { useCart } from '../cart/useCart'
+import { OrderTotals } from '../components/OrderTotals'
 import { PaymentOptions } from '../components/PaymentOptions'
 import { ShareButton } from '../components/ShareButton'
 import { SmartImage } from '../components/SmartImage'
@@ -9,6 +10,7 @@ import {
   formatCurrency,
   formatCurrencyFromCents,
 } from '../utils/formatters'
+import { calculateOrderBreakdown } from '../utils/orderBreakdown'
 
 function CartItem({ item }) {
   const { decrementItem, incrementItem, removeItem } = useCart()
@@ -134,10 +136,7 @@ export function CartPage() {
 
         <aside className="cart-summary" aria-labelledby="cart-summary-title">
           <h2 id="cart-summary-title">Resumo estimado</h2>
-          <div>
-            <span>Subtotal</span>
-            <strong>{formatCurrencyFromCents(subtotalCents)}</strong>
-          </div>
+          <OrderTotals breakdown={calculateOrderBreakdown(items, { terms })} totalLabel="Total estimado" />
           <FreeShippingNotice subtotalCents={subtotalCents} minimum={terms?.free_shipping_minimum} />
           <p>
             Preços, disponibilidade e estoque serão confirmados antes do pagamento.

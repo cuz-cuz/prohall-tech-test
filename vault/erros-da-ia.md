@@ -363,3 +363,23 @@ Ao aplicar a constraint de ordem única dos banners, o primeiro patch encontrou 
 ### Correção e prevenção
 
 O diff foi revisado antes de migrations ou testes, a inserção incorreta foi removida e a constraint foi colocada no `Meta` de `Banner`. Em arquivos com vários blocos estruturalmente semelhantes, patches de modelo devem incluir a declaração da classe como contexto e o diff deve ser conferido antes de qualquer comando que altere o banco.
+
+## 1º de outubro de 2026 — Proxy da Vercel não casava rotas com barra final
+
+### Erro
+
+O rewrite `/api/:path*` em `vercel.mjs` não casa caminhos terminados em `/`, como `/api/health/`. Como todas as rotas do Django terminam em barra, toda chamada da API caía no fallback da SPA e recebia `index.html` com status 200, sem erro aparente no deploy.
+
+### Correção e prevenção
+
+A origem passou a ser o regex `/api/(.*)` com destino `/api/$1`. Proxies devem ser verificados após o deploy por uma rota real da API, conferindo o `Content-Type` da resposta e não apenas o status.
+
+## 1º de outubro de 2026 — Healthcheck recusado pelo redirecionamento HTTPS
+
+### Erro
+
+O roteiro de deploy ativava `SECURE_SSL_REDIRECT` e o healthcheck do Railway em `/api/health/`, mas o healthcheck chama o container por HTTP interno, sem `X-Forwarded-Proto`. O Django respondia 301 e o Railway reprovava o deploy.
+
+### Correção e prevenção
+
+`SECURE_REDIRECT_EXEMPT` isenta somente `/api/health/`, com testes que confirmam que as demais rotas continuam redirecionando. Configurações de segurança que alteram respostas devem ser validadas contra o caminho exato usado pela plataforma de hospedagem.

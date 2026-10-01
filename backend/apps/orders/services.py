@@ -3,14 +3,16 @@ import json
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
+from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.catalog.models import Listing
+from apps.core.models import StoreSettings
 from apps.customers.models import (
     Customer,
     CustomerAccessCode,
@@ -49,7 +51,11 @@ def _payload_fingerprint(data):
             ),
             key=lambda item: item["listing_id"],
         ),
-        "payment": {"card_last_four": data["payment"]["card_last_four"]},
+        "payment": {
+            key: data["payment"][key]
+            for key in ("method", "card_last_four", "pix_outcome")
+            if key in data["payment"]
+        },
     }
     encoded = json.dumps(
         canonical_payload,
@@ -76,6 +82,27 @@ def _replay_or_conflict(order, fingerprint):
             "Esta chave de idempotência já foi usada em outro checkout.",
         )
     return order, True
+
+
+def _money(value):
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def order_pricing(*, subtotal, product_discount, payment_method):
+    """Return the server-side breakdown that the order total must match."""
+
+    pix_discount = Decimal("0.00")
+    if payment_method == Order.PaymentMethod.PIX:
+        pix_discount = _money(subtotal * settings.PIX_DISCOUNT_PERCENT / Decimal("100"))
+    free_shipping = subtotal >= StoreSettings.load().free_shipping_minimum
+    shipping_fee = Decimal("0.00") if free_shipping else _money(settings.SHIPPING_FEE)
+    return {
+        "product_discount": _money(product_discount),
+        "pix_discount": pix_discount,
+        "shipping_fee": shipping_fee,
+        "shipping_saved": _money(settings.SHIPPING_FEE) if free_shipping else Decimal("0.00"),
+        "total": subtotal - pix_discount + shipping_fee,
+    }
 
 
 def _get_or_create_customer(customer_data):
@@ -194,6 +221,7 @@ def _checkout_order_atomic(data, fingerprint):
 
     prepared_items = []
     subtotal = Decimal("0.00")
+    product_discount = Decimal("0.00")
     for listing_id in sorted(requested_items):
         requested = requested_items[listing_id]
         listing = locked_listings[listing_id]
@@ -226,6 +254,7 @@ def _checkout_order_atomic(data, fingerprint):
 
         item_subtotal = unit_price * requested["quantity"]
         subtotal += item_subtotal
+        product_discount += (listing.price - unit_price) * requested["quantity"]
         prepared_items.append((listing, requested["quantity"], item_subtotal))
 
     customer_data = data["customer"]
@@ -234,8 +263,19 @@ def _checkout_order_atomic(data, fingerprint):
         customer.name = customer_data["name"]
         customer.save(update_fields=("name", "updated_at"))
 
-    payment_last_four = data["payment"]["card_last_four"]
-    approved = payment_last_four != "0000"
+    payment = data["payment"]
+    payment_method = payment["method"]
+    if payment_method == Order.PaymentMethod.PIX:
+        payment_last_four = ""
+        approved = payment["pix_outcome"] == "paid"
+    else:
+        payment_last_four = payment["card_last_four"]
+        approved = payment_last_four != "0000"
+    pricing = order_pricing(
+        subtotal=subtotal,
+        product_discount=product_discount,
+        payment_method=payment_method,
+    )
     payment_status = (
         Order.PaymentStatus.APPROVED
         if approved
@@ -251,8 +291,9 @@ def _checkout_order_atomic(data, fingerprint):
         customer_name=customer_data["name"],
         status=order_status,
         payment_status=payment_status,
+        payment_method=payment_method,
         subtotal=subtotal,
-        total=subtotal,
+        **pricing,
         payment_last_four=payment_last_four,
         idempotency_key=idempotency_key,
         idempotency_fingerprint=fingerprint,

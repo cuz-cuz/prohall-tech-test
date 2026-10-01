@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { OrderTotals } from '../components/OrderTotals'
 import { ApiError, getMyOrders, logoutCustomer } from '../services/api'
 import { formatCurrency } from '../utils/formatters'
+import { orderBreakdownFromOrder } from '../utils/orderBreakdown'
 
 const orderStatusLabels = {
   payment_approved: 'Pagamento aprovado',
@@ -122,9 +124,9 @@ export function MyOrdersPage() {
                   </li>
                 ))}
               </ul>
-              <footer className="order-card__total">
-                <span>Total pago</span>
-                <strong>{formatCurrency(order.total)}</strong>
+              <footer className="order-card__totals">
+                <span className="order-card__method">Pago com {order.payment_method === 'pix' ? 'Pix' : 'cartão'}</span>
+                <OrderTotals breakdown={orderBreakdownFromOrder(order)} totalLabel="Total pago" />
               </footer>
             </article>
           ))}
