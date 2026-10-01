@@ -24,6 +24,16 @@ export function formatCurrencyFromCents(cents) {
   return Number.isSafeInteger(cents) ? currencyFormatter.format(cents / 100) : '—'
 }
 
+export function calculateSavingsCents(originalPrice, effectivePrice) {
+  const originalCents = currencyToCents(originalPrice)
+  const effectiveCents = currencyToCents(effectivePrice)
+
+  if (originalCents === null || effectiveCents === null) return null
+
+  const savingsCents = originalCents - effectiveCents
+  return savingsCents > 0 ? savingsCents : null
+}
+
 export function formatCategory(value = '') {
   return value
     .split('-')

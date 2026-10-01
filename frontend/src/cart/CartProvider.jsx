@@ -35,7 +35,7 @@ export function CartProvider({ children }) {
   }, [state.items])
 
   const addItem = useCallback(
-    (product) => dispatch({ type: 'ADD_ITEM', product }),
+    (product, quantity = 1) => dispatch({ type: 'ADD_ITEM', product, quantity }),
     [],
   )
   const incrementItem = useCallback(

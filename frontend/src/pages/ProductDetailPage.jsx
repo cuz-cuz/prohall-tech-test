@@ -1,43 +1,22 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { useCart } from '../cart/useCart'
+import { PaymentOptions } from '../components/PaymentOptions'
+import { ShareButton } from '../components/ShareButton'
 import { SmartImage } from '../components/SmartImage'
 import { StatePanel } from '../components/StatePanel'
-import { useCart } from '../cart/useCart'
 import { useApiResource } from '../hooks/useApiResource'
 import { getListing } from '../services/api'
-import { formatCurrency, formatCategory } from '../utils/formatters'
+import { formatCategory } from '../utils/formatters'
 
 function ProductGallery({ product }) {
-  const images = Array.from(
-    new Set([product.thumbnail_url, ...(product.images ?? [])].filter(Boolean)),
-  )
+  const images = Array.from(new Set([...(product.images ?? []), product.thumbnail_url].filter(Boolean)))
   const [selectedImage, setSelectedImage] = useState(images[0])
-
   return (
     <div className="product-gallery">
-      <SmartImage
-        className="product-gallery__main"
-        src={selectedImage}
-        alt={product.title}
-        eager
-      />
-      {images.length > 1 ? (
-        <div className="product-gallery__thumbnails" aria-label="Imagens do produto">
-          {images.slice(0, 5).map((image, index) => (
-            <button
-              type="button"
-              className={image === selectedImage ? 'is-selected' : ''}
-              onClick={() => setSelectedImage(image)}
-              aria-label={`Ver imagem ${index + 1} de ${product.title}`}
-              aria-pressed={image === selectedImage}
-              key={image}
-            >
-              <SmartImage src={image} alt="" />
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <SmartImage className="product-gallery__main" src={selectedImage} alt={product.title} eager sizes="(min-width: 48rem) 54vw, 100vw" />
+      {images.length > 1 ? <div className="product-gallery__thumbnails" aria-label="Imagens do produto">{images.slice(0, 6).map((image, index) => <button type="button" className={image === selectedImage ? 'is-selected' : ''} onClick={() => setSelectedImage(image)} aria-label={`Ver imagem ${index + 1} de ${product.title}`} aria-pressed={image === selectedImage} key={image}><SmartImage src={image} alt="" sizes="4rem" /></button>)}</div> : null}
     </div>
   )
 }
@@ -48,111 +27,49 @@ export function ProductDetailPage() {
   const state = useApiResource(loadListing)
   const product = state.data
   const { addItem, items } = useCart()
-  const [cartFeedback, setCartFeedback] = useState({ productId: null, message: '' })
-  const cartItem = product
-    ? items.find((item) => item.id === product.id)
-    : null
-  const atCartLimit = Boolean(
-    product && cartItem && cartItem.quantity >= product.stock_quantity,
-  )
+  const [quantity, setQuantity] = useState(1)
+  const [cartFeedback, setCartFeedback] = useState('')
+  const cartItem = product ? items.find((item) => item.id === product.id) : null
+  const availableToAdd = product ? Math.max(0, product.stock_quantity - (cartItem?.quantity ?? 0)) : 0
+  const selectedQuantity = Math.min(quantity, Math.max(1, availableToAdd))
 
   function handleAddToCart() {
-    if (!product?.is_available || atCartLimit) return
-    addItem(product)
-    const nextQuantity = (cartItem?.quantity ?? 0) + 1
-    setCartFeedback({
-      productId: product.id,
-      message: `${product.title} adicionado. ${nextQuantity} ${nextQuantity === 1 ? 'unidade' : 'unidades'} no carrinho.`,
-    })
+    if (!product?.is_available || availableToAdd < 1) return
+    addItem(product, selectedQuantity)
+    const nextQuantity = (cartItem?.quantity ?? 0) + selectedQuantity
+    setCartFeedback(`${product.title} adicionado. ${nextQuantity} ${nextQuantity === 1 ? 'unidade' : 'unidades'} no carrinho.`)
+    setQuantity(1)
   }
 
   return (
     <main id="conteudo-principal" className="page-container product-page">
-      {state.status === 'loading' ? (
-        <div className="detail-skeleton" aria-label="Carregando produto" aria-busy="true">
-          <span className="skeleton-block" />
-          <div>
-            <span className="skeleton-block" />
-            <span className="skeleton-block" />
-            <span className="skeleton-block" />
-          </div>
-        </div>
-      ) : null}
-
-      {state.status === 'error' ? (
-        <StatePanel
-          title="Produto não encontrado"
-          message="O anúncio pode ter sido removido ou está temporariamente indisponível."
-          actionLabel="Tentar novamente"
-          onAction={state.retry}
-        />
-      ) : null}
+      {state.status === 'loading' ? <div className="detail-skeleton" aria-label="Carregando produto" aria-busy="true"><span className="skeleton-block" /><div><span className="skeleton-block" /><span className="skeleton-block" /><span className="skeleton-block" /></div></div> : null}
+      {state.status === 'error' ? <StatePanel title="Produto não encontrado" message="O anúncio pode ter sido removido ou está temporariamente indisponível." actionLabel="Tentar novamente" onAction={state.retry} /> : null}
 
       {state.status === 'success' && product ? (
         <>
-          <nav className="breadcrumb" aria-label="Navegação estrutural">
-            <Link to="/">Início</Link>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">{product.title}</span>
-          </nav>
+          <nav className="breadcrumb" aria-label="Navegação estrutural"><Link to="/">Início</Link><span aria-hidden="true">/</span><span aria-current="page">{product.title}</span></nav>
           <article className="product-detail">
             <ProductGallery key={product.id} product={product} />
             <div className="product-detail__content">
-              <p className="product-detail__category">
-                {[product.brand, formatCategory(product.category)]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
+              <p className="product-detail__category">{[product.brand, formatCategory(product.category)].filter(Boolean).join(' · ')}</p>
               <h1>{product.title}</h1>
               <p className="product-detail__sku">SKU {product.sku || 'não informado'}</p>
-              <div className="product-detail__price">
-                {product.is_on_sale ? (
-                  <p>
-                    De <del>{formatCurrency(product.price)}</del>
-                  </p>
-                ) : null}
-                <strong>{formatCurrency(product.effective_price)}</strong>
-                {product.is_on_sale ? <span>Preço promocional</span> : null}
+              <PaymentOptions product={product} />
+              <div className={`stock-panel ${product.is_available ? '' : 'stock-panel--unavailable'}`}><strong>{product.is_available ? product.stock_quantity <= 5 ? 'Últimas unidades' : 'Disponível' : 'Indisponível'}</strong><span>{product.is_available ? `${product.stock_quantity} unidade${product.stock_quantity === 1 ? '' : 's'} em estoque` : 'Este item não pode ser comprado no momento.'}</span></div>
+              <div className="purchase-actions">
+                <div className="quantity-picker" role="group" aria-label={`Quantidade de ${product.title}`}>
+                  <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={selectedQuantity <= 1} aria-label="Diminuir quantidade">−</button>
+                  <span aria-live="polite">{selectedQuantity}</span>
+                  <button type="button" onClick={() => setQuantity((value) => Math.min(availableToAdd, value + 1))} disabled={selectedQuantity >= availableToAdd} aria-label="Aumentar quantidade">+</button>
+                </div>
+                <button className="button button--primary" type="button" onClick={handleAddToCart} disabled={!product.is_available || availableToAdd < 1} aria-label="Adicionar ao carrinho">{!product.is_available ? 'Produto indisponível' : availableToAdd < 1 ? 'Quantidade máxima no carrinho' : `Adicionar ${selectedQuantity} ao carrinho`}</button>
+                {cartItem ? <Link to="/carrinho">Ver carrinho ({cartItem.quantity})</Link> : null}
+                <p className="add-to-cart__status" role="status" aria-live="polite">{cartFeedback}</p>
               </div>
-              <div
-                className={`stock-panel ${product.is_available ? '' : 'stock-panel--unavailable'}`}
-              >
-                <strong>{product.is_available ? 'Disponível' : 'Indisponível'}</strong>
-                <span>
-                  {product.is_available
-                    ? `${product.stock_quantity} unidade${product.stock_quantity === 1 ? '' : 's'} em estoque`
-                    : 'Este item não pode ser comprado no momento.'}
-                </span>
-              </div>
-              <div className="add-to-cart">
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={handleAddToCart}
-                  disabled={!product.is_available || atCartLimit}
-                >
-                  {!product.is_available
-                    ? 'Produto indisponível'
-                    : atCartLimit
-                      ? 'Quantidade máxima no carrinho'
-                      : 'Adicionar ao carrinho'}
-                </button>
-                {cartItem ? (
-                  <Link to="/carrinho">
-                    Ver carrinho ({cartItem.quantity})
-                  </Link>
-                ) : null}
-                <p className="add-to-cart__status" role="status" aria-live="polite">
-                  {cartFeedback.productId === product.id ? cartFeedback.message : ''}
-                </p>
-              </div>
-              <div className="product-detail__description">
-                <h2>Sobre o produto</h2>
-                <p>{product.description || 'Descrição não informada.'}</p>
-              </div>
-              <Link className="button button--secondary" to="/">
-                Continuar explorando
-              </Link>
+              <ShareButton title={product.title} text={`Confira ${product.title} na Mosaico.`} />
+              <div className="product-detail__description"><h2>Sobre o produto</h2><p>{product.description || 'Descrição não informada.'}</p></div>
+              <Link className="button button--secondary" to="/produtos">Continuar explorando</Link>
             </div>
           </article>
         </>

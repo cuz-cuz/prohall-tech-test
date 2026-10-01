@@ -47,7 +47,9 @@ class CatalogAdminIntegrationTests(TestCase):
         )
 
     def setUp(self):
-        self.client.force_login(self.admin_user)
+        self.assertTrue(
+            self.client.login(username="admin-test", password="test-password")
+        )
 
     def test_catalog_admin_pages_render(self):
         admin_pages = (
@@ -55,6 +57,9 @@ class CatalogAdminIntegrationTests(TestCase):
             "admin:catalog_listing_changelist",
             "admin:catalog_menu_changelist",
             "admin:catalog_banner_changelist",
+            "admin:customers_customer_changelist",
+            "admin:customers_customeraccesscode_changelist",
+            "admin:orders_order_changelist",
         )
 
         for page_name in admin_pages:

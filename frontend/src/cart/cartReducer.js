@@ -39,11 +39,15 @@ export function snapshotCartProduct(product) {
     ? normalizeMoney(product.promotional_price)
     : null
 
+  const preferredImage = Array.isArray(product?.images)
+    ? product.images.find((image) => normalizeText(image))
+    : ''
+
   return {
     id,
     slug: normalizeText(product.slug),
     title: normalizeText(product.title),
-    thumbnail_url: normalizeText(product.thumbnail_url),
+    thumbnail_url: normalizeText(preferredImage) || normalizeText(product.thumbnail_url),
     price,
     promotional_price: promotionalPrice,
     effective_price: effectivePrice,
@@ -85,7 +89,7 @@ function addItem(items, product, requestedQuantity = 1) {
 export function cartReducer(state, action) {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const items = addItem(state.items, action.product)
+      const items = addItem(state.items, action.product, action.quantity)
       return items === state.items ? state : { items }
     }
     case 'INCREMENT_ITEM': {

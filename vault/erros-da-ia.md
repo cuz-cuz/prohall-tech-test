@@ -173,3 +173,91 @@ Os arquivos foram relidos explicitamente como UTF-8 e a alteração foi dividida
 ### Regra preventiva
 
 Quando a saída do terminal mostrar mojibake, reler com codificação UTF-8 antes de usar texto acentuado como contexto de patch; preferir contextos estruturais curtos.
+
+## 30 de setembro de 2026 — Build Docker iniciado sem conferir espaço livre
+
+### Erro
+
+O primeiro `docker compose up --build` foi iniciado quando a unidade `C:` tinha cerca de 244 MB livres. O crescimento do disco virtual do Docker esgotou o volume e deixou o filesystem ext4 interno somente leitura.
+
+### Como foi percebido
+
+O BuildKit retornou `input/output error`, `read-only file system` e erros de leitura em `/dev/sde`. O Docker Desktop permaneceu preso em `starting` mesmo depois de reiniciado.
+
+### Correção
+
+Foi liberado espaço em `C:`, criado um backup do `docker_data.vhdx` em `E:`, executado `e2fsck` conforme a orientação do WSL e removidas somente as imagens e camadas de build corrompidas. Uma segunda verificação confirmou o filesystem limpo.
+
+### Regra preventiva
+
+Antes de baixar imagens ou construir serviços Docker, conferir o espaço livre no volume que armazena o VHDX e manter margem de vários gigabytes para downloads, extração de camadas e crescimento do disco virtual.
+
+## 30 de setembro de 2026 — Limiar trigramático baixo demais para buscas curtas
+
+### Erro
+
+A busca PostgreSQL usava `word_similarity` com limiar `0.18`. Uma busca por `colecao` também aceitava a descrição `descricao comercial` com similaridade `0.5`, incluindo um produto sem relação nos resultados.
+
+### Como foi percebido
+
+A suíte PostgreSQL real encontrou 14 resultados onde paginação esperava 13; SQLite não executava essa implementação trigramática e não expunha o defeito.
+
+### Correção
+
+Correspondências exatas e parciais permanecem nos filtros normalizados `contains`; a similaridade aproximada passou a exigir `0.6`. Um teste cobre a descrição que gerou o falso positivo.
+
+### Regra preventiva
+
+Validar limiares de busca aproximada com consultas curtas e campos de texto longos no mesmo banco e extensão usados em produção.
+
+## 30 de setembro de 2026 — Testes novos anexados à classe de fixture errada
+
+### Erro
+
+Ao adicionar testes da Fase 8 a `orders/tests.py`, os métodos restantes do checkout ficaram temporariamente dentro da classe de testes de sessão, que não preparava produto e anúncio.
+
+### Como foi percebido
+
+Uma execução de 15 testes mostrou vários `AttributeError` por falta de `self.url` e `self.listing`.
+
+### Correção e prevenção
+
+Os testes de checkout restantes foram separados em uma classe derivada da fixture original. Depois de inserir testes em módulos existentes, conferir o escopo com `rg -n '^class |^    def test_'` e executar o app completo.
+
+## 30 de setembro de 2026 — Recorrência de limite de classe e conexão concorrente aberta
+
+### Erro
+
+Ao inserir o teste concorrente da Fase 10, o último método da classe anterior voltou a ficar sob a nova classe. Além disso, `close_old_connections()` não encerrou a conexão criada pela thread, e o PostgreSQL recusou remover o banco de teste depois de todos os casos passarem.
+
+### Como foi percebido
+
+A execução focada encontrou um `AttributeError` no método deslocado. Após corrigir a classe, os oito testes passaram, mas o teardown retornou `ObjectInUse` porque ainda havia uma sessão conectada a `test_mosaico`.
+
+### Correção
+
+O método foi devolvido à classe com a fixture correta. Cada worker passou a executar `connections.close_all()` no bloco `finally`, e a execução seguinte criou e removeu o banco de teste sem erro.
+
+### Regra preventiva
+
+Antes de rodar testes após inserir uma classe, conferir os limites com `rg -n '^class |^    def test_'`. Em testes PostgreSQL com threads, usar conexões independentes e encerrá-las explicitamente no `finally`; o fechamento de conexões antigas não substitui o fechamento da conexão ativa do worker.
+
+## 30 de setembro de 2026 — Status da fase inserido na seção errada
+
+### Erro
+
+Um patch usou apenas a linha genérica `Modelo recomendado: GPT-5.6 Sol — High` como contexto e inseriu o status da Fase 10 depois da Fase 0, que possui a mesma recomendação.
+
+### Correção e prevenção
+
+O status foi movido para a seção correta e a posição foi conferida com busca por número de linha. Ao editar documentos com blocos repetidos, usar o título da seção e o título seguinte como contexto do patch, depois localizar o texto inserido para validar sua posição.
+
+## 30 de setembro de 2026 — Uso de variável reservada do PowerShell
+
+### Erro
+
+Durante uma consulta exploratória do catálogo, foi usado o nome `$home`, que no PowerShell é uma variável automática e somente leitura. A atribuição falhou e interrompeu apenas aquela consulta de menus.
+
+### Correção e prevenção
+
+A consulta foi repetida com o nome específico `$storefrontData`. Scripts PowerShell do projeto devem usar nomes ligados à tarefa e nunca reutilizar `$HOME`, `$home` ou outras variáveis automáticas do sistema.

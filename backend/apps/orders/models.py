@@ -48,6 +48,10 @@ class Order(models.Model):
                 condition=Q(total__gte=0),
                 name="orders_order_total_gte_0",
             ),
+            models.CheckConstraint(
+                condition=Q(total=F("subtotal")),
+                name="orders_order_total_matches_subtotal",
+            ),
         ]
 
     def __str__(self) -> str:

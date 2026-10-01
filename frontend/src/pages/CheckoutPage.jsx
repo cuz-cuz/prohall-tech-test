@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { useCart } from '../cart/useCart'
@@ -17,7 +17,14 @@ function checkoutErrorMessage(error) {
     idempotency_conflict:
       'Este checkout foi alterado durante o envio. Volte ao carrinho e tente novamente.',
   }
-  return messages[error?.data?.code] ?? error?.message ?? 'Não foi possível concluir o pedido.'
+  const code = error?.data?.code
+  if (code === 'insufficient_stock' && Number.isInteger(error?.data?.available)) {
+    return `A quantidade pedida não está mais disponível. Restam ${error.data.available} unidade${error.data.available === 1 ? '' : 's'} desse produto.`
+  }
+  if (code === 'price_changed' && error?.data?.current_price) {
+    return `O preço de um produto mudou para ${formatCurrencyFromCents(currencyToCents(error.data.current_price))}. Revise o carrinho antes de continuar.`
+  }
+  return messages[code] ?? error?.message ?? 'Não foi possível concluir o pedido.'
 }
 
 export function CheckoutPage() {
@@ -27,7 +34,13 @@ export function CheckoutPage() {
   const [form, setForm] = useState({ name: '', email: '', cardLastFour: '' })
   const [status, setStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [errorCode, setErrorCode] = useState('')
   const submittingRef = useRef(false)
+  const errorRef = useRef(null)
+
+  useEffect(() => {
+    if (errorMessage) errorRef.current?.focus()
+  }, [errorMessage])
 
   if (!items.length) {
     return (
@@ -57,6 +70,7 @@ export function CheckoutPage() {
     submittingRef.current = true
     setStatus('submitting')
     setErrorMessage('')
+    setErrorCode('')
 
     try {
       const order = await checkoutOrder({
@@ -73,6 +87,7 @@ export function CheckoutPage() {
       navigate('/checkout/resultado', { replace: true, state: { order } })
     } catch (error) {
       setErrorMessage(checkoutErrorMessage(error))
+      setErrorCode(error?.data?.code ?? '')
       setStatus('error')
       submittingRef.current = false
     }
@@ -89,7 +104,7 @@ export function CheckoutPage() {
       </header>
 
       <div className="checkout-layout">
-        <form className="checkout-form" onSubmit={handleSubmit}>
+        <form className="checkout-form" onSubmit={handleSubmit} aria-busy={isSubmitting}>
           <fieldset disabled={isSubmitting}>
             <legend>Seus dados</legend>
             <label className="form-field" htmlFor="checkout-name">
@@ -163,9 +178,12 @@ export function CheckoutPage() {
           </fieldset>
 
           {errorMessage ? (
-            <div className="checkout-error" role="alert">
+            <div className="checkout-error" role="alert" ref={errorRef} tabIndex="-1">
               <strong>Revise o pedido</strong>
               <span>{errorMessage}</span>
+              {['price_changed', 'insufficient_stock', 'listing_unavailable', 'idempotency_conflict'].includes(errorCode) ? (
+                <Link to="/carrinho">Revisar carrinho agora</Link>
+              ) : null}
             </div>
           ) : null}
 

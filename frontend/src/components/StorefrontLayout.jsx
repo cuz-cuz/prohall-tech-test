@@ -49,6 +49,7 @@ export function StorefrontLayout() {
             <NavLink to="/" end>
               Início
             </NavLink>
+            <NavLink to="/produtos">Todos os produtos</NavLink>
             {homeState.status === 'loading' ? (
               <span className="department-nav__loading">Carregando departamentos…</span>
             ) : null}
@@ -57,6 +58,7 @@ export function StorefrontLayout() {
                 {menu.name}
               </NavLink>
             ))}
+            <NavLink to="/meus-pedidos">Meus pedidos</NavLink>
           </div>
         </nav>
       </header>
@@ -65,12 +67,30 @@ export function StorefrontLayout() {
 
       <footer className="site-footer">
         <div className="page-container site-footer__content">
-          <div>
+          <div className="site-footer__brand">
             <strong>Mosaico</strong>
-            <p>Variedade organizada para escolhas mais simples.</p>
+            <p>Moda, beleza e autocuidado em uma curadoria feita para escolhas mais simples.</p>
           </div>
-          <Link to="/">Voltar ao início</Link>
+          <nav aria-label="Comprar">
+            <strong>Comprar</strong>
+            <Link to="/produtos">Todos os produtos</Link>
+            <Link to="/menu/beleza">Beleza</Link>
+            <Link to="/menu/perfumes">Perfumes</Link>
+            <Link to="/menu/roupas">Roupas</Link>
+          </nav>
+          <nav aria-label="Sua conta">
+            <strong>Sua conta</strong>
+            <Link to="/carrinho">Carrinho</Link>
+            <Link to="/meus-pedidos">Meus pedidos</Link>
+            <Link to="/acesso">Acessar pedidos</Link>
+          </nav>
+          <div className="site-footer__about">
+            <strong>Compra de demonstração</strong>
+            <p>Pagamento simulado e estoque conferido pelo servidor antes de cada pedido.</p>
+            <div className="payment-badges" aria-label="Formas de pagamento demonstradas"><span>Pix</span><span>Visa</span><span>Mastercard</span><span>Elo</span></div>
+          </div>
         </div>
+        <div className="page-container site-footer__legal"><span>© 2026 Mosaico</span><span>Projeto técnico · nenhum pagamento real é processado</span></div>
       </footer>
     </div>
   )

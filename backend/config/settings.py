@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import dj_database_url
@@ -21,6 +22,13 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
+def env_decimal(name: str, default: str) -> Decimal:
+    try:
+        return Decimal(os.getenv(name, default))
+    except InvalidOperation as exc:
+        raise ImproperlyConfigured(f"{name} must be a decimal number.") from exc
+
+
 DEBUG = env_bool("DEBUG", default=True)
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-local-development-only")
 
@@ -28,6 +36,11 @@ if not DEBUG and SECRET_KEY == "django-insecure-local-development-only":
     raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is false.")
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+if not DEBUG and not os.getenv("ALLOWED_HOSTS", "").strip():
+    raise ImproperlyConfigured("ALLOWED_HOSTS must be set when DEBUG is false.")
+if not DEBUG and "*" in ALLOWED_HOSTS:
+    raise ImproperlyConfigured("ALLOWED_HOSTS cannot contain * when DEBUG is false.")
 
 
 INSTALLED_APPS = [
@@ -124,12 +137,37 @@ CSRF_TRUSTED_ORIGINS = env_list(
     "CSRF_TRUSTED_ORIGINS", "http://localhost:5173"
 )
 
+if not DEBUG:
+    if not os.getenv("CORS_ALLOWED_ORIGINS", "").strip():
+        raise ImproperlyConfigured(
+            "CORS_ALLOWED_ORIGINS must be set when DEBUG is false."
+        )
+    if not os.getenv("CSRF_TRUSTED_ORIGINS", "").strip():
+        raise ImproperlyConfigured(
+            "CSRF_TRUSTED_ORIGINS must be set when DEBUG is false."
+        )
+    insecure_origins = [
+        origin
+        for origin in CORS_ALLOWED_ORIGINS + CSRF_TRUSTED_ORIGINS
+        if not origin.startswith("https://")
+    ]
+    if insecure_origins:
+        raise ImproperlyConfigured(
+            "CORS and CSRF origins must use HTTPS when DEBUG is false."
+        )
+
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
+SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False
+)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", default=False)
 
 
 REST_FRAMEWORK = {
@@ -143,6 +181,42 @@ DUMMYJSON_BASE_URL = os.getenv("DUMMYJSON_BASE_URL", "https://dummyjson.com")
 DUMMYJSON_TIMEOUT_SECONDS = float(os.getenv("DUMMYJSON_TIMEOUT_SECONDS", "20"))
 DUMMYJSON_PAGE_SIZE = int(os.getenv("DUMMYJSON_PAGE_SIZE", "50"))
 
+FREE_SHIPPING_MINIMUM = env_decimal("FREE_SHIPPING_MINIMUM", "199.00")
+PIX_DISCOUNT_PERCENT = env_decimal("PIX_DISCOUNT_PERCENT", "10.00")
+MAX_INSTALLMENTS = int(os.getenv("MAX_INSTALLMENTS", "12"))
+
+if FREE_SHIPPING_MINIMUM <= 0:
+    raise ImproperlyConfigured("FREE_SHIPPING_MINIMUM must be greater than zero.")
+if not Decimal("0") <= PIX_DISCOUNT_PERCENT < Decimal("100"):
+    raise ImproperlyConfigured("PIX_DISCOUNT_PERCENT must be between 0 and 100.")
+if MAX_INSTALLMENTS < 1:
+    raise ImproperlyConfigured("MAX_INSTALLMENTS must be at least one.")
+
 DEMO_ADMIN_USERNAME = os.getenv("DEMO_ADMIN_USERNAME", "admin")
 DEMO_ADMIN_EMAIL = os.getenv("DEMO_ADMIN_EMAIL", "admin@mosaico.local")
 DEMO_ADMIN_PASSWORD = os.getenv("DEMO_ADMIN_PASSWORD", "")
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.locmem.EmailBackend"
+)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@example.com")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", default=False)
+
+if not DEBUG and EMAIL_BACKEND == "django.core.mail.backends.locmem.EmailBackend":
+    raise ImproperlyConfigured(
+        "Configure um backend de e-mail de produção para liberar o acesso do cliente."
+    )
+if (
+    EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend"
+    and not EMAIL_HOST
+):
+    raise ImproperlyConfigured("EMAIL_HOST é obrigatório para o backend SMTP.")
+
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+    "customer_access_request": "3/hour",
+    "customer_access_verify": "10/hour",
+}

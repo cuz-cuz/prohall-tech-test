@@ -1,20 +1,30 @@
-import { useCallback } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useCallback, useMemo } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 
+import { CatalogFilters } from '../components/CatalogFilters'
+import { Pagination } from '../components/Pagination'
 import { ProductCard } from '../components/ProductCard'
 import { ProductGridSkeleton, StatePanel } from '../components/StatePanel'
 import { useApiResource } from '../hooks/useApiResource'
 import { getMenuListings } from '../services/api'
 import { formatCategory } from '../utils/formatters'
+import { catalogParams } from '../utils/catalogFilters'
 
 export function MenuPage() {
   const { slug } = useParams()
+  const [searchParams] = useSearchParams()
+  const serialized = searchParams.toString()
+  const filters = useMemo(
+    () => catalogParams(new URLSearchParams(serialized), 'featured'),
+    [serialized],
+  )
   const loadListings = useCallback(
-    (options) => getMenuListings(slug, options),
-    [slug],
+    (options) => getMenuListings(slug, filters, options),
+    [filters, slug],
   )
   const state = useApiResource(loadListings)
-  const products = state.data ?? []
+  const result = state.data
+  const products = result?.results ?? []
   const title = formatCategory(slug)
 
   return (
@@ -29,6 +39,13 @@ export function MenuPage() {
         <h1>{title}</h1>
         <p>Uma seleção organizada pela equipe da Mosaico.</p>
       </header>
+
+      <CatalogFilters
+        key={serialized || 'default'}
+        pathname={`/menu/${slug}`}
+        searchParams={searchParams}
+        defaultOrdering="featured"
+      />
 
       {state.status === 'loading' ? <ProductGridSkeleton count={8} /> : null}
       {state.status === 'error' ? (
@@ -57,6 +74,12 @@ export function MenuPage() {
           ))}
         </div>
       ) : null}
+      <Pagination
+        pathname={`/menu/${slug}`}
+        searchParams={searchParams}
+        page={filters.page}
+        count={result?.count}
+      />
     </main>
   )
 }

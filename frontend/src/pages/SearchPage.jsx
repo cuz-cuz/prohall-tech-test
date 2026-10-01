@@ -1,7 +1,8 @@
 import { useCallback } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 
 import { ProductCard } from '../components/ProductCard'
+import { Pagination } from '../components/Pagination'
 import { ProductGridSkeleton, StatePanel } from '../components/StatePanel'
 import { useApiResource } from '../hooks/useApiResource'
 import { searchListings } from '../services/api'
@@ -9,12 +10,6 @@ import { searchListings } from '../services/api'
 function normalizedPage(value) {
   const page = Number.parseInt(value, 10)
   return Number.isInteger(page) && page > 0 ? page : 1
-}
-
-function pageTarget(query, page) {
-  const params = new URLSearchParams({ q: query })
-  if (page > 1) params.set('page', String(page))
-  return `/busca?${params.toString()}`
 }
 
 export function SearchPage() {
@@ -77,25 +72,12 @@ export function SearchPage() {
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
-          {result.previous || result.next ? (
-            <nav className="pagination" aria-label="Páginas dos resultados">
-              {result.previous ? (
-                <Link className="button button--secondary" to={pageTarget(query, page - 1)}>
-                  Página anterior
-                </Link>
-              ) : (
-                <span />
-              )}
-              <span aria-current="page">Página {page}</span>
-              {result.next ? (
-                <Link className="button button--secondary" to={pageTarget(query, page + 1)}>
-                  Próxima página
-                </Link>
-              ) : (
-                <span />
-              )}
-            </nav>
-          ) : null}
+          <Pagination
+            pathname="/busca"
+            searchParams={searchParams}
+            page={page}
+            count={result.count}
+          />
         </>
       ) : null}
     </main>

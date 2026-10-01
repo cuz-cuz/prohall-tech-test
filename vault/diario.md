@@ -298,3 +298,296 @@
 - testar dois checkouts concorrentes sobre o mesmo estoque no PostgreSQL;
 - antes da Fase 8, manter ou selecionar GPT-5.6 Sol — High;
 - implementar conta automática, sessão segura, “Meus pedidos” e proteção contra acesso cruzado.
+
+## 30 de setembro de 2026 — Restauração do ambiente em casa
+
+### Feito
+
+- criado `.venv` com Python 3.14 e instaladas as dependências do backend;
+- instaladas as dependências do frontend com `npm ci`;
+- iniciado e validado o Docker Desktop com WSL 2;
+- reparado o filesystem ext4 do disco virtual do Docker após esgotamento de espaço em `C:`;
+- criado backup anterior ao reparo em `E:\docker-backups\docker_data-before-fsck-2026-09-30.vhdx`;
+- construídas as imagens e iniciados PostgreSQL 18, backend e frontend pelo Compose;
+- aplicadas todas as migrations, incluindo `unaccent` e `pg_trgm`;
+- importados 194 produtos e confirmada a idempotência em uma segunda importação;
+- criado o conjunto demo com 24 anúncios, 4 menus e 2 banners.
+
+### Validado
+
+- `pip check` e `manage.py check` sem erros;
+- 19 testes frontend aprovados, lint aprovado e build de produção aprovado;
+- frontend respondeu HTTP 200 em `localhost:5173`;
+- healthcheck respondeu `status: ok` em `localhost:8000/api/health/`;
+- 49 dos 50 testes backend foram aprovados contra PostgreSQL real;
+- o disco virtual do Docker passou em uma segunda verificação `e2fsck` sem erros.
+
+### Pendências encontradas
+
+- definir uma senha administrativa local e executar novamente `seed_demo`, sem versionar a credencial;
+- validar dois checkouts concorrentes sobre o mesmo estoque;
+- avançar para a Fase 9 depois de selecionar GPT-5.6 Sol — Medium.
+
+## 30 de setembro de 2026 — Fase 8 e correção da busca PostgreSQL
+
+### Feito
+
+- elevado o limiar trigramático PostgreSQL de `0.18` para `0.6`; correspondências exatas e parciais continuam cobertas por busca normalizada;
+- adicionado teste de regressão para impedir que `colecao` retorne descrição sem relação;
+- associado checkout e sessão do navegador ao `Customer` por ID em sessão Django;
+- adicionados endpoints de sessão, solicitação e verificação de código, logout, lista e detalhe de pedidos;
+- criado `CustomerAccessCode` com hash, expiração de 10 minutos, uso único e limite de cinco tentativas;
+- protegidas as operações de sessão com CSRF e limitador de requisições;
+- configurado e-mail de demonstração em memória, sem colocar o código em logs; resposta inclui o código somente com `DEBUG=True`;
+- produção falha ao iniciar se ainda usar o backend de e-mail em memória;
+- pedidos são consultados pelo cliente da sessão, e IDs públicos de outra conta retornam 404;
+- criadas telas “Meus pedidos” e “Acesse seus pedidos”, com snapshots, status e datas em `America/Sao_Paulo`;
+- adicionada migration `customers.0002_customeraccesscode` e documentação da forma de acesso.
+
+### Validado
+
+- migration aplicada ao PostgreSQL Docker e `makemigrations --check --dry-run` sem mudanças pendentes;
+- Django check aprovado;
+- 58 testes backend aprovados contra PostgreSQL, incluindo busca, CSRF, sessão, isolamento, uso único e tentativas;
+- 20 testes frontend aprovados, lint e build aprovados;
+- healthcheck/API e frontend seguem ativos em `localhost:8000` e `localhost:5173`.
+
+### Pendências
+
+- definir administrador local para uso do Django Admin;
+- validar concorrência de checkout sobre o último item de estoque no PostgreSQL;
+- antes da Fase 9, selecionar GPT-5.6 Sol — Medium.
+
+## 30 de setembro de 2026 — Fase 9: UX e responsividade
+
+### Feito
+
+- revisado o fluxo mobile de carrinho, checkout, resultado, acesso e pedidos;
+- ações principais passam a ocupar a largura disponível em telas pequenas e o resumo do checkout usa espaçamento compacto;
+- conflitos de preço, estoque, anúncio e idempotência movem o foco para o aviso e oferecem retorno direto ao carrinho;
+- erro de estoque mostra a quantidade ainda disponível e preço alterado mostra o valor confirmado pelo backend;
+- formulário de acesso associa o erro ao campo inválido, move o foco para o aviso e foca automaticamente o código após o envio;
+- adicionados estados `aria-busy`, feedback de falha no logout e skeleton acessível para o histórico de pedidos;
+- imagens ganharam `decoding="async"`, `sizes` por contexto e dimensões explícitas nos snapshots de pedidos;
+- corrigida a sombra dos cards de pedido para usar o token existente `--shadow-low`.
+
+### Validado
+
+- 21 testes frontend aprovados, incluindo foco após solicitação do código e orientação para conflito de estoque;
+- lint sem avisos ou erros;
+- build de produção aprovado no container Docker;
+- revisão do CSS mobile-first e dos estados acessíveis concluída por inspeção do código;
+- `git diff --check` sem erros.
+
+### Limitação do ambiente
+
+- a inspeção visual automatizada não pôde ser executada porque o controlador local do navegador/Windows falhou ao criar os arquivos do kernel; a aplicação permaneceu disponível no Docker e as verificações automatizadas passaram.
+
+### Próximo
+
+- antes da Fase 10, selecionar GPT-5.6 Sol — High;
+- revisar segurança, concorrência, segredos e o checklist manual completo.
+
+## 30 de setembro de 2026 — Fase 10: testes e segurança
+
+### Feito
+
+- adicionado teste transacional com duas conexões PostgreSQL disputando a última unidade; apenas um checkout aprova e o outro recebe `insufficient_stock`;
+- criada a constraint `orders_order_total_matches_subtotal` e a migration `orders.0002`, impedindo divergência monetária diretamente no banco;
+- checkout anônimo passou a exigir CSRF e o frontend obtém um token explícito antes de qualquer escrita, compatível com frontend e API em subdomínios do mesmo site;
+- respostas `204 No Content` deixaram de ser interpretadas como JSON, corrigindo o logout do cliente;
+- adicionados testes de CORS permitido e recusado, CSRF do checkout, atributos `Secure`, `HttpOnly` e `SameSite` dos cookies;
+- produção agora exige `ALLOWED_HOSTS`, CORS e CSRF explícitos, proíbe wildcard em hosts, exige origens HTTPS e força redirecionamento HTTPS;
+- HSTS ficou configurável por ambiente para ser ativado quando o domínio definitivo estiver estável;
+- login administrativo real foi exercitado e as páginas de produtos, anúncios, menus, banners, clientes, códigos e pedidos foram abertas nos testes;
+- `AGENTS.md` recebeu regras para limites de classes de teste e fechamento de conexões concorrentes.
+
+### Validado
+
+- 63 testes backend aprovados contra PostgreSQL 18;
+- 21 testes frontend aprovados, lint sem erros e build de produção aprovado;
+- `manage.py check`, `makemigrations --check` e `check --deploy` com configuração completa aprovados;
+- migration `orders.0002` aplicada ao banco local;
+- `pip check` sem dependências quebradas e `npm audit --omit=dev` com zero vulnerabilidades;
+- varredura de padrões de chaves privadas e tokens no workspace e nos oito commits sem ocorrências;
+- `.env` do backend e frontend confirmados como ignorados pelo Git;
+- Home, carrinho, checkout, acesso, pedidos, healthcheck, vitrine, busca e login do Admin responderam HTTP 200 localmente.
+
+### Pendências de aceite
+
+- realizar a conferência visual manual em celular e desktop, pois o controlador de navegador/Windows desta sessão não iniciou;
+- definir uma credencial administrativa local ou de demonstração fora do Git;
+- criar e testar o deploy público na Fase 14;
+- adicionar as migrations e demais arquivos ao próximo commit antes da entrega.
+
+### Próximo
+
+- seguir para a Fase 11 com GPT-5.6 Sol — High para construir a fundação do painel administrativo próprio.
+
+## 30 de setembro de 2026 — Planejamento do painel administrativo próprio
+
+### Decisão do responsável
+
+Antes do deploy e da entrega, o projeto ganhará uma área administrativa React própria. O Django Admin continuará ativo como contingência, mas deixará de ser a experiência principal de operação.
+
+### Plano aprovado para implementação
+
+- Fase 11: autenticação staff, API administrativa, layout protegido, dashboard e consultas somente leitura;
+- Fase 12: gestão de anúncios, menus, banners e importação pelo painel;
+- Fase 13: segurança, acessibilidade, responsividade, testes integrados e aprovação visual;
+- Fase 14: deploy no Railway e Vercel;
+- Fase 15: documentação e entrega final.
+
+### Restrições preservadas
+
+- React, Django, DRF e PostgreSQL continuam como stack;
+- usuários administrativos continuam sendo usuários Django com `is_staff`;
+- sessão HttpOnly e CSRF protegem o painel; não será introduzido JWT;
+- produtos importados, pedidos e clientes respeitam campos somente leitura;
+- regras de preço, estoque e total continuam exclusivamente no backend;
+- códigos temporários e hashes de clientes não serão expostos.
+
+### Próximo
+
+- iniciar a Fase 11 com GPT-5.6 Sol — High após o responsável terminar a rodada atual de testes e ajustes da loja.
+
+## 30 de setembro de 2026 — Evolução da vitrine antes da Fase 11
+
+### Entregue
+
+- setas no banner, preservando a rolagem horizontal por gesto;
+- catálogo geral e menus com paginação, ordenação e filtros de preço e frete;
+- ordenação por vendas baseada apenas em pedidos aprovados e por desconto promocional real;
+- cards redesenhados a partir da referência em `Prints`, com imagem alternativa no hover, estoque exato e alerta nas últimas cinco unidades;
+- Home sem a seção redundante de categorias e com bloco editorial de posicionamento;
+- rodapé responsivo com navegação, conta, contexto da demonstração e formas de pagamento;
+- produto com condições comerciais, seletor de quantidade e compartilhamento;
+- carrinho com estoque, condições comerciais e compartilhamento consciente da limitação do `localStorage`;
+- descontos importados usados para configurar promoções apenas nos anúncios gerados pelo `seed_demo`, preservando promoções personalizadas;
+- contrato público paginado e parâmetros comerciais configuráveis no backend.
+
+### Validação
+
+- 21 testes de `apps.storefront` aprovados;
+- 41 testes de catálogo, pedidos e clientes aprovados;
+- 66 testes backend aprovados na suíte completa, incluindo `apps.core`;
+- 23 testes frontend aprovados;
+- lint frontend sem avisos e build de produção aprovado;
+- API local confirmou 45 anúncios, maior desconto de 15,94% e cinco itens com frete grátis;
+- checkout aprovado com final fictício `4242` continua coberto pelo teste integrado do frontend.
+
+### Próximo
+
+- responsável realiza a rodada visual e funcional na loja;
+- depois, iniciar a Fase 11 com GPT-5.6 Sol — High.
+
+## 30 de setembro de 2026 — Dropdown e paginação detalhada
+
+### Entregue
+
+- seletor nativo de ordenação substituído por dropdown acessível e alinhado à referência visual, com opção selecionada, marca de confirmação, hover, foco, fechamento externo e tecla Escape;
+- paginação passou a exibir setas, números, página atual destacada e reticências quando necessário;
+- todas as listagens mostram “Página X de Y” e “Mostrando A–B de N produtos”, inclusive quando existe uma única página;
+- links de paginação preservam busca, filtros e ordenação ativos.
+
+### Validação
+
+- 23 testes frontend aprovados, incluindo o resumo de 45 produtos em quatro páginas;
+- lint sem avisos;
+- build de produção aprovado.
+
+## 30 de setembro de 2026 — Pagamentos coloridos e imagens em alta qualidade
+
+### Entregue
+
+- página de produto e resumo do carrinho diferenciam Pix em verde, cartão em roxo e entrega em azul;
+- valores à vista e parcelados ganharam maior peso visual, seguindo a referência em `Prints/exemplo detalhes pagamento.jfif`;
+- `ImportedProduct.primary_image_url` centraliza a prioridade da primeira imagem de alta qualidade do DummyJSON;
+- thumbnail comprimida passou a ser somente fallback;
+- cards, galeria, carrinho, banners gerados e snapshots de novos pedidos usam a imagem principal de maior qualidade;
+- snapshots de pedidos antigos permanecem imutáveis.
+
+### Validação
+
+- 62 testes backend das áreas afetadas aprovados e nenhuma migration pendente;
+- 24 testes frontend aprovados, incluindo cores semânticas e imagem principal;
+- lint sem avisos e build de produção aprovado.
+
+## 30 de setembro de 2026 — Compra direta e sinalização comercial nos cards
+
+### Entregue
+
+- cards receberam seletor de quantidade e ação direta de adicionar ao carrinho;
+- quantidade máxima considera o estoque e as unidades que já estão no carrinho;
+- preço normal usa a cor principal do texto e preço efetivo fica vermelho somente quando há promoção;
+- frete grátis usa selo verde;
+- descontos abaixo de 10% usam roxo, entre 10% e 19,99% usam laranja e a partir de 20% usam vermelho;
+- estados de hover, foco, indisponibilidade, limite e confirmação foram adicionados aos controles.
+
+### Validação
+
+- 24 testes frontend aprovados, incluindo duas unidades adicionadas diretamente pelo card;
+- lint sem avisos;
+- build de produção aprovado.
+
+## 30 de setembro de 2026 — Simplificação das condições de pagamento
+
+- removidos fundos coloridos, bordas laterais e caixas dos identificadores de Pix, cartão e frete;
+- cores semânticas foram mantidas apenas nos textos principais;
+- opções usam separadores discretos e espaçamento próximo da referência visual;
+- 24 testes frontend, lint e build de produção aprovados.
+
+## 30 de setembro de 2026 — Estrutura de preço e pagamento da referência
+
+### Entregue
+
+- bloco da página de produto reorganizado conforme `Prints/exemplo detalhes pagamento.jfif`;
+- desconto percentual, moeda e preço aparecem na mesma linha, com centavos elevados;
+- preço anterior tachado e indicador informativo aparecem logo abaixo;
+- parcelamento sem juros usa o destaque verde da referência e informa o total parcelado;
+- o link “Ver opções de pagamento” expande as condições de Pix, cartão e frete sem fundos coloridos;
+- valores continuam sendo calculados a partir dos campos comerciais retornados pela API.
+
+### Validação
+
+- 24 testes frontend aprovados, incluindo a hierarquia do novo bloco;
+- lint sem avisos;
+- build de produção aprovado;
+- frontend reiniciado no Docker para teste local.
+
+## 30 de setembro de 2026 — Auditoria integral do desafio
+
+### Revisado
+
+- todos os requisitos do enunciado foram comparados com o código, o plano, o README, o banco local e o repositório remoto;
+- a matriz de conformidade foi registrada em `docs/auditoria_requisitos.md`;
+- o checklist do plano foi corrigido para refletir o estado real e o próximo passo passou a ser a Fase 11;
+- o repositório GitHub foi confirmado como público;
+- foram identificadas como pendências principais o painel React, o setup completo em um comando, o README final, a validação manual mobile, o deploy e a publicação das alterações locais.
+
+### Validação
+
+- 66 testes backend aprovados;
+- `manage.py check` aprovado e nenhuma migration nova pendente;
+- 24 testes frontend, lint e build de produção aprovados na revisão da vitrine imediatamente anterior;
+- serviços PostgreSQL, backend e frontend ativos no Docker;
+- usuário administrativo local `admin` confirmado como ativo e superusuário;
+- GitHub confirmou `cuz-cuz/prohall-tech-test` como repositório público na branch `main`;
+- 56 entradas locais estavam modificadas ou não rastreadas antes da criação desta auditoria, portanto o remoto ainda não representa a aplicação atual.
+
+## 1º de outubro de 2026 — Economia da promoção e opções de pagamento
+
+### Entregue
+
+- cards promocionais passaram a informar em reais quanto o cliente economiza;
+- a página dedicada do produto exibe a mesma economia junto ao preço anterior;
+- a diferença é calculada em centavos a partir dos preços normal e efetivo recebidos da API e só aparece quando é positiva;
+- o conteúdo de “Ver opções de pagamento” foi reorganizado em um painel com condições comparáveis de Pix, cartão e frete;
+- o aviso do painel reforça que preço, estoque e condições são confirmados no checkout.
+
+### Validação
+
+- 24 testes frontend aprovados, incluindo economia de R$ 170,00 no card e no detalhe e abertura do novo painel;
+- lint sem avisos e build de produção aprovado;
+- `git diff --check` aprovado;
+- conferência visual automatizada ficou indisponível porque não havia navegador conectado à sessão; alteração ficou disponível no servidor local para aceite manual.

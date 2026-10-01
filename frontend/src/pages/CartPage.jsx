@@ -1,6 +1,8 @@
-import { Link } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 
 import { useCart } from '../cart/useCart'
+import { PaymentOptions } from '../components/PaymentOptions'
+import { ShareButton } from '../components/ShareButton'
 import { SmartImage } from '../components/SmartImage'
 import {
   currencyToCents,
@@ -15,7 +17,7 @@ function CartItem({ item }) {
   return (
     <li className="cart-item">
       <Link className="cart-item__image" to={`/produto/${item.slug}`}>
-        <SmartImage src={item.thumbnail_url} alt={item.title} />
+        <SmartImage src={item.thumbnail_url} alt={item.title} sizes="7rem" />
       </Link>
       <div className="cart-item__content">
         <div>
@@ -57,7 +59,8 @@ function CartItem({ item }) {
         </div>
         {atStockLimit ? (
           <small>Quantidade máxima disponível no momento.</small>
-        ) : null}
+        ) : <small>{item.stock_quantity} unidades disponíveis em estoque.</small>}
+        {item.stock_quantity <= 5 ? <small className="stock-warning">Últimas unidades deste produto.</small> : null}
       </div>
       <strong className="cart-item__total">
         {formatCurrencyFromCents(
@@ -70,6 +73,8 @@ function CartItem({ item }) {
 
 export function CartPage() {
   const { items, totalItems, subtotalCents, clearCart } = useCart()
+  const { homeState } = useOutletContext()
+  const terms = homeState.data?.commercial_terms
 
   if (!items.length) {
     return (
@@ -114,9 +119,16 @@ export function CartPage() {
           <p>
             Preços, disponibilidade e estoque serão confirmados antes do pagamento.
           </p>
+          <PaymentOptions amountCents={subtotalCents} terms={terms} compact />
           <Link className="button button--primary" to="/checkout">
             Ir para o checkout
           </Link>
+          <ShareButton
+            title="Minha seleção na Mosaico"
+            text={`Separei ${totalItems} ${totalItems === 1 ? 'item' : 'itens'} na Mosaico.`}
+            label="Compartilhar seleção"
+          />
+          <small>O compartilhamento envia esta página e um resumo; cada pessoa monta o próprio carrinho.</small>
           <Link className="button button--secondary" to="/">
             Continuar explorando
           </Link>

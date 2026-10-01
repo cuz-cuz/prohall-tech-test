@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -9,6 +10,8 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
+from apps.customers.models import Customer
+from apps.orders.models import Order, OrderItem
 
 from .serializers import ListingSerializer
 
@@ -40,8 +43,8 @@ class ListingRulesTests(SimpleTestCase):
             brand="Mosaico",
             category="beauty",
             sku="SKU-1",
-            thumbnail_url="https://example.com/product.jpg",
-            images=["https://example.com/product.jpg"],
+            thumbnail_url="https://example.com/product-thumbnail.jpg",
+            images=["https://example.com/product-high-resolution.jpg"],
         )
         listing = self.make_listing(
             product=product,
@@ -53,8 +56,16 @@ class ListingRulesTests(SimpleTestCase):
         data = ListingSerializer(listing).data
 
         self.assertEqual(data["brand"], "Mosaico")
+        self.assertEqual(
+            data["thumbnail_url"],
+            "https://example.com/product-high-resolution.jpg",
+        )
         self.assertEqual(data["effective_price"], "100.00")
         self.assertTrue(data["is_available"])
+        self.assertEqual(data["pix_price"], "90.00")
+        self.assertEqual(data["installment_count"], 12)
+        self.assertEqual(data["installment_value"], "8.33")
+        self.assertFalse(data["free_shipping"])
 
 
 class BannerRulesTests(SimpleTestCase):
@@ -125,6 +136,9 @@ class StorefrontAPITests(APITestCase):
         brand="",
         category="general",
         active=True,
+        price=Decimal("49.90"),
+        promotional_price=None,
+        stock_quantity=5,
     ):
         product = ImportedProduct.objects.create(
             external_id=external_id,
@@ -141,8 +155,9 @@ class StorefrontAPITests(APITestCase):
             slug=slug,
             title=title,
             description=description,
-            price=Decimal("49.90"),
-            stock_quantity=5,
+            price=price,
+            promotional_price=promotional_price,
+            stock_quantity=stock_quantity,
             active=active,
         )
 
@@ -193,7 +208,111 @@ class StorefrontAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["slug"] for item in response.data], ["produto-1"])
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(
+            [item["slug"] for item in response.data["results"]],
+            ["produto-1"],
+        )
+
+    def test_listing_catalog_filters_and_orders_with_backend_values(self):
+        featured = self.create_listing(
+            external_id=30,
+            slug="kit-premium",
+            title="Kit premium",
+            price=Decimal("250.00"),
+            promotional_price=Decimal("200.00"),
+        )
+        inexpensive = self.create_listing(
+            external_id=31,
+            slug="item-economico",
+            title="Item econômico",
+            price=Decimal("20.00"),
+        )
+        customer = Customer.objects.create(name="Ana", email="ana@example.com")
+        approved_order = Order.objects.create(
+            customer=customer,
+            status=Order.Status.PAYMENT_APPROVED,
+            payment_status=Order.PaymentStatus.APPROVED,
+            subtotal=Decimal("600.00"),
+            total=Decimal("600.00"),
+            payment_last_four="4242",
+            idempotency_key=uuid.uuid4(),
+            idempotency_fingerprint="a" * 64,
+        )
+        OrderItem.objects.create(
+            order=approved_order,
+            listing=featured,
+            listing_title=featured.title,
+            product_external_id=featured.product.external_id,
+            unit_price=Decimal("200.00"),
+            quantity=3,
+            subtotal=Decimal("600.00"),
+        )
+        declined_order = Order.objects.create(
+            customer=customer,
+            status=Order.Status.PAYMENT_DECLINED,
+            payment_status=Order.PaymentStatus.DECLINED,
+            subtotal=Decimal("200.00"),
+            total=Decimal("200.00"),
+            payment_last_four="0000",
+            idempotency_key=uuid.uuid4(),
+            idempotency_fingerprint="b" * 64,
+        )
+        OrderItem.objects.create(
+            order=declined_order,
+            listing=inexpensive,
+            listing_title=inexpensive.title,
+            product_external_id=inexpensive.product.external_id,
+            unit_price=Decimal("20.00"),
+            quantity=10,
+            subtotal=Decimal("200.00"),
+        )
+        url = reverse("storefront:listing-list")
+
+        best_selling = self.client.get(url, {"ordering": "best_selling"})
+        price_range = self.client.get(
+            url,
+            {"min_price": "150.00", "max_price": "210.00"},
+        )
+        free_shipping = self.client.get(url, {"free_shipping": "true"})
+
+        self.assertEqual(best_selling.data["results"][0]["slug"], featured.slug)
+        self.assertEqual(best_selling.data["results"][0]["sales_count"], 3)
+        self.assertEqual(
+            [item["slug"] for item in price_range.data["results"]],
+            [featured.slug],
+        )
+        self.assertEqual(
+            [item["slug"] for item in free_shipping.data["results"]],
+            [featured.slug],
+        )
+
+    def test_listing_catalog_rejects_an_inverted_price_range(self):
+        response = self.client.get(
+            reverse("storefront:listing-list"),
+            {"min_price": "200.00", "max_price": "100.00"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("max_price", response.data)
+
+    def test_listing_catalog_is_paginated(self):
+        for index in range(40, 52):
+            self.create_listing(
+                external_id=index,
+                slug=f"produto-{index}",
+                title=f"Produto {index}",
+            )
+
+        url = reverse("storefront:listing-list")
+        first_page = self.client.get(url)
+        second_page = self.client.get(url, {"page": 2})
+
+        self.assertEqual(first_page.data["count"], 13)
+        self.assertEqual(len(first_page.data["results"]), 12)
+        self.assertIsNotNone(first_page.data["next"])
+        self.assertEqual(len(second_page.data["results"]), 1)
+        self.assertIsNotNone(second_page.data["previous"])
 
     def test_inactive_listing_has_no_public_detail(self):
         self.listing.active = False
@@ -304,6 +423,18 @@ class StorefrontAPITests(APITestCase):
         self.assertEqual(response.data["count"], 13)
         self.assertEqual(len(response.data["results"]), 12)
         self.assertIsNotNone(response.data["next"])
+
+    def test_search_does_not_include_unrelated_description_similarity(self):
+        response = self.client.get(
+            reverse("storefront:listing-search"),
+            {"q": "colecao"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(
+            self.listing.slug,
+            [item["slug"] for item in response.data["results"]],
+        )
 
 
 class CatalogConstraintsTests(TestCase):

@@ -1,6 +1,12 @@
 import { useState } from 'react'
 
-export function SmartImage({ src, alt, className = '', eager = false }) {
+export function SmartImage({
+  src,
+  alt,
+  className = '',
+  eager = false,
+  sizes = '100vw',
+}) {
   const [failedSrc, setFailedSrc] = useState(null)
   const failed = failedSrc === src
 
@@ -24,6 +30,8 @@ export function SmartImage({ src, alt, className = '', eager = false }) {
       alt={alt}
       loading={eager ? 'eager' : 'lazy'}
       fetchPriority={eager ? 'high' : 'auto'}
+      decoding="async"
+      sizes={sizes}
       onError={() => setFailedSrc(src)}
     />
   )

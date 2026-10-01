@@ -57,9 +57,14 @@ export function PaymentResultPage() {
 
       <div className="result-page__actions">
         {approved ? (
-          <Link className="button button--primary" to="/">
-            Continuar explorando
-          </Link>
+          <>
+            <Link className="button button--primary" to="/meus-pedidos">
+              Ver meus pedidos
+            </Link>
+            <Link className="button button--secondary" to="/">
+              Continuar explorando
+            </Link>
+          </>
         ) : (
           <>
             <Link className="button button--primary" to="/checkout">

@@ -100,3 +100,14 @@ class OrderSerializer(serializers.ModelSerializer):
             "items",
             "created_at",
         )
+
+
+class CustomerAccessRequestSerializer(StrictSerializer):
+    email = serializers.EmailField(max_length=254)
+
+    def validate_email(self, value):
+        return normalize_customer_email(value)
+
+
+class CustomerAccessVerifySerializer(CustomerAccessRequestSerializer):
+    code = serializers.RegexField(r"^\d{6}$")

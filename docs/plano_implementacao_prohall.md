@@ -120,7 +120,8 @@ Para proteger o prazo e evitar overengineering:
 - ERP ou CRM;
 - marketplace com múltiplos vendedores;
 - estoque distribuído;
-- painel administrativo React próprio;
+- permissões administrativas com múltiplos perfis e papéis;
+- dashboards analíticos avançados ou relatórios financeiros;
 - busca semântica com IA antes de concluir a busca obrigatória;
 - internacionalização completa;
 - aplicativos móveis nativos.
@@ -132,8 +133,8 @@ Para proteger o prazo e evitar overengineering:
 ```text
 ┌─────────────────────────────────────┐
 │        React + Vite (Vercel)        │
-│ Home / Menus / Busca / Produto      │
-│ Carrinho / Checkout / Meus pedidos  │
+│ Loja e painel administrativo         │
+│ /...                    /admin/...   │
 └──────────────────┬──────────────────┘
                    │ HTTPS / JSON
                    ▼
@@ -141,7 +142,8 @@ Para proteger o prazo e evitar overengineering:
 │ Django + DRF (Railway)              │
 │ API / regras / autenticação         │
 │ importação / pedidos / estoque      │
-│ Django Admin                        │
+│ API pública / API administrativa    │
+│ Django Admin de contingência        │
 └─────────────┬───────────────┬───────┘
               │               │
               ▼               ▼
@@ -156,7 +158,9 @@ Princípios:
 - o DummyJSON é somente a origem dos produtos importados;
 - produto importado e anúncio comercial são entidades diferentes;
 - pedidos guardam snapshots para preservar o histórico;
-- o Django Admin será a interface administrativa do MVP;
+- o painel React será a interface administrativa principal;
+- o Django Admin continuará disponível como contingência operacional;
+- a API administrativa reutilizará usuários Django `is_staff`, sessão e CSRF;
 - regras importantes devem estar no backend e cobertas por testes.
 
 ---
@@ -411,9 +415,9 @@ created_at
 updated_at
 ```
 
-No primeiro checkout, a conta é criada automaticamente. O cliente permanece autenticado por sessão segura após a compra. Para voltar em outro dispositivo, será implementado acesso sem senha por código temporário associado ao e-mail. No ambiente de demonstração, o código pode ser exibido por um backend de e-mail de desenvolvimento; em produção, deve ser enviado por provedor configurável.
+No primeiro checkout, o registro `Customer` é criado automaticamente e associado à sessão Django do navegador. Não foi criado um usuário Django porque o cliente não define senha nem possui login administrativo; o ID do cliente fica somente no armazenamento de sessão do servidor, com cookie HttpOnly, SameSite e Secure em produção. Pedidos sempre são filtrados pelo cliente da sessão.
 
-Se o envio de e-mail não for concluído dentro do prazo, manter a sessão persistente como fluxo funcional e documentar claramente a limitação no README.
+Para voltar em outro navegador, o cliente solicita um código sem senha por e-mail. Em desenvolvimento, o backend de e-mail em memória devolve o código na resposta somente quando `DEBUG=True`; em produção, um provedor configurável deve enviá-lo. O endpoint não revela se o e-mail existe, é limitado por IP, o código expira em 10 minutos, é armazenado com hash e permite no máximo cinco tentativas. O backend recusa iniciar em produção se o backend de e-mail continuar em memória.
 
 ### 9.7 CustomerAccessCode
 
@@ -647,13 +651,75 @@ POST /api/customer/logout/
 
 ### Administração
 
-- Django Admin em `/admin/`;
-- importação via `python manage.py import_products`;
-- ação administrativa de sincronização somente se houver tempo após o P0.
+- painel React em `/admin`, no mesmo frontend da loja;
+- API protegida em `/api/admin/`, disponível somente a usuários Django `is_staff` ativos;
+- autenticação por sessão Django e CSRF, sem JWT ou segundo cadastro de administrador;
+- Django Admin mantido no backend em `/admin/` como contingência;
+- importação disponível pelo painel e pelo comando `python manage.py import_products`.
+
+Contrato administrativo planejado:
+
+```http
+GET  /api/admin/session/
+POST /api/admin/login/
+POST /api/admin/logout/
+GET  /api/admin/dashboard/
+
+GET  /api/admin/products/
+POST /api/admin/products/import/
+
+GET  /api/admin/listings/
+POST /api/admin/listings/
+GET  /api/admin/listings/{id}/
+PATCH /api/admin/listings/{id}/
+
+GET  /api/admin/menus/
+POST /api/admin/menus/
+GET  /api/admin/menus/{id}/
+PATCH /api/admin/menus/{id}/
+
+GET  /api/admin/banners/
+POST /api/admin/banners/
+GET  /api/admin/banners/{id}/
+PATCH /api/admin/banners/{id}/
+
+GET  /api/admin/orders/
+GET  /api/admin/orders/{public_id}/
+GET  /api/admin/customers/
+GET  /api/admin/customers/{id}/
+```
+
+Listagens administrativas serão paginadas e aceitarão busca e filtros compatíveis com cada recurso. Exclusões físicas não entram no fluxo principal: anúncios, menus e banners serão desativados para preservar referências e facilitar recuperação.
 
 ---
 
-## 16. Django Admin
+## 16. Painel administrativo
+
+### Estrutura da interface
+
+- login administrativo;
+- dashboard com indicadores operacionais e atalhos;
+- navegação responsiva entre produtos, anúncios, menus, banners e pedidos;
+- tabelas no desktop e cartões legíveis no celular;
+- estados de carregamento, vazio, erro e confirmação em toda operação;
+- confirmação antes de ações destrutivas ou que removem itens da vitrine.
+
+### Segurança e API
+
+- endpoints sob `/api/admin/` exigem usuário autenticado, ativo e `is_staff`;
+- login, logout e operações de escrita exigem CSRF;
+- nenhuma senha, sessão ou código temporário fica no `localStorage`;
+- pedidos, clientes e produtos importados são somente leitura onde a regra de negócio exigir;
+- serializers administrativos reutilizam constraints dos modelos e nunca aceitam total ou preço calculado pelo frontend;
+- códigos de acesso do cliente e seus hashes não aparecem no painel;
+- Django Admin permanece disponível para recuperação e contingência.
+
+### Dashboard
+
+- totais de anúncios ativos, itens com estoque baixo, pedidos e clientes;
+- últimos pedidos e seus status;
+- momento da última importação;
+- atalhos para criar anúncio, organizar vitrine e sincronizar produtos.
 
 ### ImportedProduct
 
@@ -688,6 +754,12 @@ POST /api/customer/logout/
 - itens inline;
 - valores e snapshots somente leitura;
 - nenhuma alteração manual de total.
+
+### Customer
+
+- listagem e detalhe somente leitura;
+- nome, e-mail, status e pedidos relacionados;
+- nenhum código de acesso ou hash exposto.
 
 ---
 
@@ -791,8 +863,12 @@ FRONTEND_URL=http://localhost:5173
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 CSRF_TRUSTED_ORIGINS=http://localhost:5173
 DUMMYJSON_BASE_URL=https://dummyjson.com
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+EMAIL_BACKEND=django.core.mail.backends.locmem.EmailBackend
 DEFAULT_FROM_EMAIL=no-reply@example.com
+SECURE_SSL_REDIRECT=False
+SECURE_HSTS_SECONDS=0
+SECURE_HSTS_INCLUDE_SUBDOMAINS=False
+SECURE_HSTS_PRELOAD=False
 ```
 
 ### Frontend
@@ -1167,6 +1243,8 @@ Critério de conclusão: cliente vê somente seus próprios pedidos depois da co
 
 Modelo recomendado: **GPT-5.6 Sol — High**.
 
+Status em 30 de setembro de 2026: **concluída**. Checkout inicia sessão do cliente; acesso posterior usa código de e-mail de uso único; a API lista somente pedidos do cliente da sessão e retorna 404 para pedido de outra conta; frontend inclui histórico e acesso; a migration de códigos está aplicada.
+
 ### Fase 9 — UX e responsividade
 
 Tarefas:
@@ -1180,6 +1258,8 @@ Tarefas:
 Critério de conclusão: fluxo completo confortável principalmente no celular.
 
 Modelo recomendado: **GPT-5.6 Sol — Medium**.
+
+Status em 30 de setembro de 2026: **concluída**. O fluxo mobile recebeu ações de largura integral, campos sem zoom involuntário e resumos compactos; formulários e conflitos direcionam foco e associam mensagens aos campos; “Meus pedidos” usa skeleton; imagens adotam lazy loading, decodificação assíncrona e `sizes`; checkout informa preço ou estoque atualizado e oferece retorno direto ao carrinho.
 
 ### Fase 10 — Testes e segurança
 
@@ -1196,7 +1276,58 @@ Critério de conclusão: regras críticas possuem testes e não existem segredos
 
 Modelo recomendado: **GPT-5.6 Sol — High**.
 
-### Fase 11 — Deploy
+Status em 30 de setembro de 2026: **concluída**. A suíte cobre a disputa concorrente pela última unidade em PostgreSQL, constraints monetárias, login e páginas administrativas, CORS restrito, CSRF e atributos dos cookies. Produção exige hosts e origens HTTPS explícitos, força HTTPS e passa no `check --deploy` com HSTS configurado. `pip check` passou, o audit das dependências npm de produção encontrou zero vulnerabilidades e a varredura do histórico Git não encontrou padrões de segredo.
+
+### Fase 11 — Fundação do painel administrativo
+
+Tarefas:
+
+- criar autenticação administrativa por sessão Django, com login, sessão, logout e CSRF;
+- restringir toda a API administrativa a usuários ativos com `is_staff`;
+- criar layout React próprio em `/admin`, com navegação responsiva e proteção de rotas;
+- criar dashboard com indicadores, últimos pedidos, estoque baixo e última importação;
+- criar listagens somente leitura de produtos importados, pedidos e clientes;
+- manter o Django Admin funcional como contingência;
+- testar anonimato, usuário comum, usuário staff, CSRF e ausência de dados sensíveis.
+
+Critério de conclusão: administrador entra no painel próprio e consulta com segurança o estado operacional da loja.
+
+Modelo recomendado: **GPT-5.6 Sol — High**.
+
+### Fase 12 — Operação comercial no painel
+
+Tarefas:
+
+- criar, editar, ativar e desativar anúncios;
+- validar preços, promoção e estoque com mensagens ligadas aos campos;
+- criar, editar, ordenar e ativar menus;
+- selecionar e ordenar anúncios dentro de cada menu;
+- criar, editar, ordenar, agendar e ativar banners;
+- reexecutar a importação DummyJSON pelo painel e exibir seu resumo;
+- implementar filtros, busca, paginação, feedback e confirmação das ações;
+- cobrir os fluxos administrativos com testes backend e frontend.
+
+Critério de conclusão: a vitrine pode ser administrada pelo painel React sem editar código ou abrir o Django Admin.
+
+Modelo recomendado: **GPT-5.6 Sol — Medium**.
+
+### Fase 13 — Qualidade e aprovação do painel
+
+Tarefas:
+
+- revisar responsividade, teclado, foco, contraste e leitores de tela;
+- revisar permissões por endpoint e impedir edição de campos somente leitura;
+- testar alterações do painel refletindo na loja;
+- testar erros de concorrência e validação durante edições;
+- executar o fluxo administrativo completo em celular e desktop;
+- ajustar textos, hierarquia visual e atritos encontrados pelo responsável;
+- atualizar checklist, documentação técnica e `/vault`.
+
+Critério de conclusão: o responsável aprova o painel e todas as operações obrigatórias funcionam com segurança no celular e desktop.
+
+Modelo recomendado: **GPT-5.6 Sol — High**.
+
+### Fase 14 — Deploy
 
 Tarefas:
 
@@ -1204,21 +1335,23 @@ Tarefas:
 - publicar Django no Railway;
 - executar migrations e seeds;
 - publicar React na Vercel;
-- configurar domínios, CORS e CSRF;
-- executar smoke test público.
+- configurar domínios, CORS, CSRF, cookies e e-mail;
+- criar usuário administrativo de demonstração fora do Git;
+- executar smoke test público da loja, painel React e Django Admin de contingência.
 
-Critério de conclusão: avaliador consegue usar loja e ADMIN pelas URLs publicadas.
+Critério de conclusão: avaliador consegue usar loja e painel administrativo pelas URLs publicadas.
 
 Modelo recomendado: **GPT-5.6 Sol — High**.
 
-### Fase 12 — Documentação e entrega
+### Fase 15 — Documentação e entrega
 
 Tarefas:
 
 - finalizar README e modelagem;
+- documentar acesso à loja, painel React e Django Admin de contingência;
 - atualizar `/vault`;
-- adicionar screenshots;
-- revisar commits e limitações;
+- adicionar screenshots da loja e do painel;
+- revisar commits, credenciais, histórico e limitações;
 - gravar vídeo opcional de até cinco minutos.
 
 Critério de conclusão: repositório pode ser clonado, executado e avaliado apenas pelo README.
@@ -1312,76 +1445,76 @@ Mitigação: implementar em fases, registrar decisões, revisar testes e atualiz
 
 ### Importação
 
-- [ ] produtos são importados do DummyJSON;
-- [ ] todos os itens paginados são alcançados;
-- [ ] reimportação não duplica;
-- [ ] atualizações externas são refletidas;
-- [ ] anúncios locais não são sobrescritos.
+- [x] produtos são importados do DummyJSON;
+- [x] todos os itens paginados são alcançados;
+- [x] reimportação não duplica;
+- [x] atualizações externas são refletidas;
+- [x] anúncios locais não são sobrescritos.
 
 ### ADMIN
 
-- [ ] login funciona;
+- [x] login funciona;
 - [ ] usuário de teste está no README;
-- [ ] produtos importados são visíveis;
-- [ ] anúncio pode ser criado, editado e desativado;
-- [ ] menus podem ser organizados;
-- [ ] banners podem ser organizados;
-- [ ] pedidos e itens são visíveis.
+- [x] produtos importados são visíveis;
+- [x] anúncio pode ser criado, editado e desativado no Django Admin;
+- [x] menus podem ser organizados;
+- [x] banners podem ser organizados;
+- [x] pedidos e itens são visíveis.
 
 ### Loja
 
-- [ ] Home respeita configuração do ADMIN;
-- [ ] menus listam anúncios corretos;
-- [ ] detalhes do anúncio funcionam;
-- [ ] promoção mostra claramente “de/por”;
-- [ ] somente anúncios ativos são vendidos;
+- [x] Home respeita configuração do ADMIN;
+- [x] menus listam anúncios corretos;
+- [x] detalhes do anúncio funcionam;
+- [x] promoção mostra claramente “de/por”;
+- [x] somente anúncios ativos são vendidos;
 - [ ] layout funciona principalmente no celular.
 
 ### Busca
 
-- [ ] encontra por título e descrição;
-- [ ] encontra por marca e categoria;
-- [ ] ignora caixa e acentos;
-- [ ] encontra palavras incompletas;
-- [ ] resultados relevantes aparecem primeiro;
-- [ ] estado sem resultados é claro.
+- [x] encontra por título e descrição;
+- [x] encontra por marca e categoria;
+- [x] ignora caixa e acentos;
+- [x] encontra palavras incompletas;
+- [x] resultados relevantes aparecem primeiro;
+- [x] estado sem resultados é claro.
 
 ### Carrinho
 
-- [ ] adiciona, altera e remove;
-- [ ] não aceita quantidade inválida;
-- [ ] permanece após recarregar;
-- [ ] subtotal estimado está correto.
+- [x] adiciona, altera e remove;
+- [x] não aceita quantidade inválida;
+- [x] permanece após recarregar;
+- [x] subtotal estimado está correto.
 
 ### Checkout
 
-- [ ] cria conta automaticamente;
-- [ ] preço é recalculado no servidor;
-- [ ] estoque é revalidado;
-- [ ] cartão final `0000` é recusado;
-- [ ] recusa não consome estoque;
-- [ ] aprovação consome estoque;
-- [ ] pedido guarda snapshots;
-- [ ] nenhuma cobrança real acontece.
+- [x] cria conta automaticamente;
+- [x] preço é recalculado no servidor;
+- [x] estoque é revalidado;
+- [x] cartão final `0000` é recusado;
+- [x] recusa não consome estoque;
+- [x] aprovação consome estoque;
+- [x] pedido guarda snapshots;
+- [x] nenhuma cobrança real acontece.
 
 ### Cliente
 
-- [ ] “Meus pedidos” exibe itens, valores e status;
-- [ ] datas aparecem em horário de Brasília;
-- [ ] cliente não acessa pedido alheio;
-- [ ] método de retorno está documentado.
+- [x] “Meus pedidos” exibe itens, valores e status;
+- [x] datas aparecem em horário de Brasília;
+- [x] cliente não acessa pedido alheio;
+- [x] método de retorno por código temporário está documentado.
 
 ### Entrega
 
 - [ ] migrations estão versionadas;
-- [ ] setup cria banco e usuário de teste;
-- [ ] README contém decisões e testes;
-- [ ] `AGENTS.md` existe e está atualizado;
-- [ ] `/vault` registra decisões, diário, erros e conversas;
-- [ ] `.env.example` existe;
-- [ ] nenhum segredo está no Git;
-- [ ] histórico contém commits progressivos;
-- [ ] repositório é público.
+- [ ] setup cria banco, dados iniciais e usuário de teste em um fluxo reproduzível;
+- [ ] README final contém modelagem, decisões, testes, limitações e uso da IA;
+- [x] `AGENTS.md` existe e está atualizado;
+- [x] `/vault` registra decisões, diário, erros e conversas;
+- [x] `.env.example` existe;
+- [x] nenhum segredo está no Git;
+- [x] histórico contém commits progressivos;
+- [x] repositório é público.
 
 ---
 
@@ -1408,13 +1541,25 @@ O projeto estará pronto quando o avaliador conseguir, usando apenas o README:
 
 ## 33. Próximo passo imediato
 
-Executar a **Fase 0**:
+Executar a **Fase 11 — Fundação do painel administrativo**, seguida pelas Fases 12 e 13 antes do deploy. A auditoria completa dos requisitos e das pendências de entrega está em `docs/auditoria_requisitos.md`.
 
-1. criar `AGENTS.md`;
-2. criar a estrutura de `/vault`;
-3. registrar as decisões arquiteturais deste plano;
-4. configurar `.gitignore`;
-5. verificar/iniciar o repositório Git;
-6. preparar a Fase 1 sem implementar funcionalidades futuras.
+Configuração recomendada para a Fase 11: **GPT-5.6 Sol — High**.
 
-Configuração recomendada para a Fase 0: **GPT-5.6 Sol — High**.
+---
+
+## 34. Evolução da vitrine após a Fase 10
+
+Implementada em 30 de setembro de 2026 antes do início da Fase 11:
+
+- banner mantém rolagem por gesto e oferece setas com estado de início e fim;
+- catálogo geral e menus usam paginação de 12 itens, faixa de preço, frete grátis e ordenação por vendas, preço, criação e desconto promocional;
+- “mais vendidos” soma somente itens de pedidos aprovados;
+- frete grátis é uma condição explícita para preço efetivo a partir de R$ 199,00;
+- maior desconto considera a promoção real do anúncio; cupons continuam fora do modelo atual;
+- cards seguem a referência visual fornecida, mostram estoque exato, alerta nas últimas cinco unidades e segunda imagem no hover quando disponível;
+- página de produto e carrinho mostram 10% no Pix e até 12 parcelas sem juros como condições informativas;
+- checkout permanece responsável por confirmar preço e estoque; a exibição de Pix não cria um fluxo de pagamento Pix;
+- produto permite selecionar quantidade antes de adicionar e produto/carrinho oferecem compartilhamento;
+- a seção redundante de categorias foi removida da Home e o rodapé passou a concentrar navegação, conta e contexto da demonstração.
+
+As condições comerciais são configuradas no backend por `FREE_SHIPPING_MINIMUM`, `PIX_DISCOUNT_PERCENT` e `MAX_INSTALLMENTS`. Nenhuma migration foi necessária porque todos os novos campos públicos são calculados a partir de anúncios e pedidos existentes.

@@ -69,6 +69,14 @@ class ImportedProduct(models.Model):
     def __str__(self) -> str:
         return f"{self.external_id} - {self.title}"
 
+    @property
+    def primary_image_url(self) -> str:
+        if isinstance(self.images, list):
+            for image_url in self.images:
+                if isinstance(image_url, str) and image_url.strip():
+                    return image_url.strip()
+        return self.thumbnail_url
+
 
 class Listing(models.Model):
     product = models.ForeignKey(

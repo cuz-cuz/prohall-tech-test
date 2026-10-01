@@ -24,7 +24,10 @@ from django.db.models.functions import Coalesce
 from apps.catalog.models import Listing, Menu
 
 
-SEARCH_SIMILARITY_THRESHOLD = 0.18
+# Directional word similarity can produce high scores for unrelated short
+# terms (for example, "colecao" against "descricao comercial"). Exact and
+# partial matches are handled separately by the normalized `contains` filters.
+SEARCH_SIMILARITY_THRESHOLD = 0.6
 
 
 class NormalizeSearchText(Func):

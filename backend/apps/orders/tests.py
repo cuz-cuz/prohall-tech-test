@@ -1,13 +1,20 @@
 import uuid
+import re
+import threading
 from decimal import Decimal
 
+from django.core import mail
+from django.core.cache import cache
+from django.db import IntegrityError, close_old_connections, connections, transaction
 from django.utils import timezone
+from django.test import TransactionTestCase, override_settings
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APITestCase
+from rest_framework.test import APIClient
 
 from apps.catalog.models import ImportedProduct, Listing
-from apps.customers.models import Customer
+from apps.customers.models import Customer, CustomerAccessCode
 
 from .models import Order
 
@@ -77,6 +84,253 @@ class CheckoutAPITests(APITestCase):
         self.assertEqual(item.subtotal, Decimal("199.80"))
         self.assertEqual(item.image_url, "https://example.com/secador.png")
 
+
+@override_settings(
+    REST_FRAMEWORK={
+        "DEFAULT_THROTTLE_RATES": {
+            "customer_access_request": "100/hour",
+            "customer_access_verify": "100/hour",
+        }
+    }
+)
+class CustomerOrdersAndAccessTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.customer = Customer.objects.create(
+            name="Ana Lima",
+            email="ana@example.com",
+        )
+        self.other_customer = Customer.objects.create(
+            name="Bruno Lima",
+            email="bruno@example.com",
+        )
+        self.orders_url = reverse("orders:my-orders")
+        self.session_url = reverse("orders:customer-session")
+        self.request_code_url = reverse("orders:customer-access-request")
+        self.verify_code_url = reverse("orders:customer-access-verify")
+
+    def make_order(self, customer):
+        from apps.orders.models import Order
+
+        return Order.objects.create(
+            customer=customer,
+            status=Order.Status.PAYMENT_APPROVED,
+            payment_status=Order.PaymentStatus.APPROVED,
+            subtotal=Decimal("12.50"),
+            total=Decimal("12.50"),
+            payment_last_four="4242",
+            idempotency_key=uuid.uuid4(),
+            idempotency_fingerprint="a" * 64,
+        )
+
+    def test_checkout_starts_customer_session_and_lists_owned_orders(self):
+        product = ImportedProduct.objects.create(
+            external_id=500,
+            title="Produto de sessão",
+            category="casa",
+            source_price=Decimal("12.50"),
+            last_synced_at=timezone.now(),
+        )
+        listing = Listing.objects.create(
+            product=product,
+            slug="produto-de-sessao",
+            title="Produto de sessão",
+            price=Decimal("12.50"),
+            stock_quantity=3,
+        )
+        payload = {
+            "customer": {"name": "Ana Lima", "email": "ana@example.com"},
+            "items": [
+                {
+                    "listing_id": listing.pk,
+                    "quantity": 1,
+                    "expected_unit_price": "12.50",
+                }
+            ],
+            "payment": {"card_last_four": "4242"},
+            "idempotency_key": str(uuid.uuid4()),
+        }
+
+        checkout = self.client.post(reverse("orders:checkout"), payload, format="json")
+        session = self.client.get(self.session_url)
+        orders = self.client.get(self.orders_url)
+
+        self.assertEqual(checkout.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(session.data["customer"]["email"], "ana@example.com")
+        self.assertEqual(len(orders.data), 1)
+        self.assertEqual(orders.data[0]["items"][0]["listing_title"], "Produto de sessão")
+
+    def test_customer_session_cannot_read_another_customers_order(self):
+        other_order = self.make_order(self.other_customer)
+        self.client.get(self.request_code_url)
+        session = self.client.session
+        session["customer_id"] = self.customer.pk
+        session.save()
+
+        response = self.client.get(
+            reverse("orders:my-order-detail", kwargs={"public_id": other_order.public_id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_order_list_is_empty_until_customer_has_orders(self):
+        session = self.client.session
+        session["customer_id"] = self.customer.pk
+        session.save()
+
+        response = self.client.get(self.orders_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_access_code_post_requires_csrf_cookie_and_header(self):
+        csrf_client = APIClient(enforce_csrf_checks=True)
+        csrf_client.get(self.session_url)
+        csrf_secret = csrf_client.cookies["csrftoken"].value
+
+        rejected = csrf_client.post(
+            self.request_code_url,
+            {"email": self.customer.email},
+            format="json",
+        )
+        accepted = csrf_client.post(
+            self.request_code_url,
+            {"email": self.customer.email},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_secret,
+        )
+
+        self.assertEqual(rejected.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(accepted.status_code, status.HTTP_200_OK)
+
+    def test_checkout_requires_csrf_token(self):
+        product = ImportedProduct.objects.create(
+            external_id=501,
+            title="Produto protegido por CSRF",
+            category="casa",
+            source_price=Decimal("12.50"),
+            last_synced_at=timezone.now(),
+        )
+        listing = Listing.objects.create(
+            product=product,
+            slug="produto-protegido-csrf",
+            title="Produto protegido por CSRF",
+            price=Decimal("12.50"),
+            stock_quantity=2,
+        )
+        payload = {
+            "customer": {"name": "Ana Lima", "email": "ana@example.com"},
+            "items": [
+                {
+                    "listing_id": listing.pk,
+                    "quantity": 1,
+                    "expected_unit_price": "12.50",
+                }
+            ],
+            "payment": {"card_last_four": "4242"},
+            "idempotency_key": str(uuid.uuid4()),
+        }
+        csrf_client = APIClient(enforce_csrf_checks=True)
+
+        rejected = csrf_client.post(
+            reverse("orders:checkout"), payload, format="json"
+        )
+        session = csrf_client.get(self.session_url)
+        accepted = csrf_client.post(
+            reverse("orders:checkout"),
+            payload,
+            format="json",
+            HTTP_X_CSRFTOKEN=session.data["csrf_token"],
+        )
+
+        self.assertEqual(rejected.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(accepted.status_code, status.HTTP_201_CREATED)
+
+    @override_settings(
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        CSRF_COOKIE_SECURE=True,
+        CSRF_COOKIE_HTTPONLY=False,
+        CSRF_COOKIE_SAMESITE="Lax",
+    )
+    def test_production_session_and_csrf_cookie_attributes(self):
+        csrf_response = self.client.get(self.session_url)
+        csrf_cookie = csrf_response.cookies["csrftoken"]
+
+        self.client.post(
+            self.request_code_url,
+            {"email": self.customer.email},
+            format="json",
+        )
+        code = re.search(r"\b(\d{6})\b", mail.outbox[-1].body).group(1)
+        session_response = self.client.post(
+            self.verify_code_url,
+            {"email": self.customer.email, "code": code},
+            format="json",
+        )
+        session_cookie = session_response.cookies["sessionid"]
+
+        self.assertTrue(csrf_cookie["secure"])
+        self.assertFalse(csrf_cookie["httponly"])
+        self.assertEqual(csrf_cookie["samesite"], "Lax")
+        self.assertTrue(session_cookie["secure"])
+        self.assertTrue(session_cookie["httponly"])
+        self.assertEqual(session_cookie["samesite"], "Lax")
+
+    def test_access_code_is_hashed_single_use_and_authenticates_session(self):
+        self.client.get(self.session_url)
+        requested = self.client.post(
+            self.request_code_url,
+            {"email": " ANA@EXAMPLE.COM "},
+            format="json",
+        )
+        code = re.search(r"\b(\d{6})\b", mail.outbox[-1].body).group(1)
+        access_record = CustomerAccessCode.objects.get(customer=self.customer)
+
+        self.assertEqual(requested.status_code, status.HTTP_200_OK)
+        self.assertNotEqual(access_record.code_hash, code)
+        self.assertTrue(access_record.code_hash.startswith("pbkdf2_sha256$"))
+
+        verified = self.client.post(
+            self.verify_code_url,
+            {"email": "ana@example.com", "code": code},
+            format="json",
+        )
+        session = self.client.get(self.session_url)
+        replay = self.client.post(
+            self.verify_code_url,
+            {"email": "ana@example.com", "code": code},
+            format="json",
+        )
+
+        self.assertEqual(verified.status_code, status.HTTP_200_OK)
+        self.assertTrue(session.data["authenticated"])
+        self.assertEqual(replay.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_fifth_invalid_code_attempt_expires_the_code(self):
+        self.client.get(self.session_url)
+        requested = self.client.post(
+            self.request_code_url,
+            {"email": self.customer.email},
+            format="json",
+        )
+        self.assertEqual(requested.status_code, status.HTTP_200_OK)
+
+        for _ in range(5):
+            response = self.client.post(
+                self.verify_code_url,
+                {"email": self.customer.email, "code": "999999"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        record = CustomerAccessCode.objects.get(customer=self.customer)
+        self.assertEqual(record.attempt_count, 5)
+        self.assertIsNotNone(record.used_at)
+
+
+class CheckoutAdditionalAPITests(CheckoutAPITests):
     def test_declined_checkout_keeps_stock(self):
         response = self.client.post(
             self.url,
@@ -201,6 +455,17 @@ class CheckoutAPITests(APITestCase):
         self.assertEqual(customer.name, "Ana Souza")
         self.assertEqual(customer.orders.count(), 2)
 
+    def test_database_rejects_total_different_from_subtotal(self):
+        response = self.client.post(
+            self.url,
+            self.payload(quantity=1),
+            format="json",
+        )
+        order = Order.objects.get(public_id=response.data["public_id"])
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Order.objects.filter(pk=order.pk).update(total=Decimal("1.00"))
+
     def test_order_snapshot_survives_listing_changes_and_deletion(self):
         response = self.client.post(
             self.url,
@@ -219,3 +484,87 @@ class CheckoutAPITests(APITestCase):
         self.assertEqual(item.listing_title, "Secador profissional")
         self.assertEqual(item.unit_price, Decimal("99.90"))
         self.assertEqual(item.subtotal, Decimal("99.90"))
+
+
+class CheckoutConcurrencyTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        product = ImportedProduct.objects.create(
+            external_id=901,
+            title="Última unidade",
+            category="teste",
+            source_price=Decimal("49.90"),
+            source_stock=1,
+            last_synced_at=timezone.now(),
+        )
+        self.listing = Listing.objects.create(
+            product=product,
+            slug="ultima-unidade",
+            title="Última unidade",
+            price=Decimal("49.90"),
+            stock_quantity=1,
+            active=True,
+        )
+        self.url = reverse("orders:checkout")
+
+    def _payload(self, suffix):
+        return {
+            "customer": {
+                "name": f"Cliente {suffix}",
+                "email": f"cliente-{suffix}@example.com",
+            },
+            "items": [
+                {
+                    "listing_id": self.listing.pk,
+                    "quantity": 1,
+                    "expected_unit_price": "49.90",
+                }
+            ],
+            "payment": {"card_last_four": "4242"},
+            "idempotency_key": str(uuid.uuid4()),
+        }
+
+    def test_only_one_concurrent_checkout_buys_the_last_unit(self):
+        barrier = threading.Barrier(3)
+        results = []
+        errors = []
+
+        def submit(suffix):
+            close_old_connections()
+            try:
+                client = APIClient()
+                barrier.wait(timeout=5)
+                response = client.post(
+                    self.url,
+                    self._payload(suffix),
+                    format="json",
+                )
+                results.append((response.status_code, response.data.get("code")))
+            except Exception as exc:  # pragma: no cover - reported by assertion
+                errors.append(exc)
+            finally:
+                connections.close_all()
+
+        threads = [
+            threading.Thread(target=submit, args=(suffix,))
+            for suffix in ("a", "b")
+        ]
+        for thread in threads:
+            thread.start()
+        barrier.wait(timeout=5)
+        for thread in threads:
+            thread.join(timeout=10)
+
+        self.assertFalse(errors)
+        self.assertTrue(all(not thread.is_alive() for thread in threads))
+        self.assertEqual(
+            sorted(results),
+            [
+                (status.HTTP_201_CREATED, None),
+                (status.HTTP_409_CONFLICT, "insufficient_stock"),
+            ],
+        )
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.stock_quantity, 0)
+        self.assertEqual(Order.objects.count(), 1)

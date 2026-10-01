@@ -27,3 +27,12 @@ class HealthCheckTests(SimpleTestCase):
             response.headers["Access-Control-Allow-Origin"],
             "http://localhost:5173",
         )
+        self.assertEqual(response.headers["Access-Control-Allow-Credentials"], "true")
+
+    def test_health_check_does_not_allow_an_unknown_origin(self):
+        response = self.client.get(
+            reverse("core:health"),
+            HTTP_ORIGIN="https://malicious.example",
+        )
+
+        self.assertNotIn("Access-Control-Allow-Origin", response.headers)

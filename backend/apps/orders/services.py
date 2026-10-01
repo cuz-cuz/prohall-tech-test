@@ -1,13 +1,21 @@
 import hashlib
 import json
+import secrets
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 
+from django.contrib.auth.hashers import check_password, make_password
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.catalog.models import Listing
-from apps.customers.models import Customer, normalize_customer_email
+from apps.customers.models import (
+    Customer,
+    CustomerAccessCode,
+    normalize_customer_email,
+)
 
 from .models import Order, OrderItem
 
@@ -99,6 +107,59 @@ def checkout_order(data):
         if existing_order:
             return _replay_or_conflict(existing_order, fingerprint)
         raise
+
+
+def create_customer_access_code(customer):
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    now = timezone.now()
+    with transaction.atomic():
+        CustomerAccessCode.objects.filter(
+            customer=customer,
+            used_at__isnull=True,
+        ).update(used_at=now)
+        CustomerAccessCode.objects.create(
+            customer=customer,
+            code_hash=make_password(code),
+            expires_at=now + timedelta(minutes=10),
+        )
+    send_mail(
+        subject="Seu código de acesso à Mosaico",
+        message=f"Seu código de acesso é {code}. Ele expira em 10 minutos.",
+        from_email=None,
+        recipient_list=[customer.email],
+        fail_silently=False,
+    )
+    return code
+
+
+@transaction.atomic
+def verify_customer_access_code(*, email, code):
+    now = timezone.now()
+    customer = Customer.objects.filter(email=email, is_active=True).first()
+    if customer is None:
+        return None
+    access_code = (
+        CustomerAccessCode.objects.select_for_update()
+        .filter(
+            customer=customer,
+            used_at__isnull=True,
+            expires_at__gt=now,
+            attempt_count__lt=5,
+        )
+        .order_by("-created_at", "-id")
+        .first()
+    )
+    if access_code is None:
+        return None
+    if not check_password(code, access_code.code_hash):
+        access_code.attempt_count += 1
+        if access_code.attempt_count >= 5:
+            access_code.used_at = now
+        access_code.save(update_fields=("attempt_count", "used_at"))
+        return None
+    access_code.used_at = now
+    access_code.save(update_fields=("used_at",))
+    return customer
 
 
 @transaction.atomic
@@ -207,7 +268,7 @@ def _checkout_order_atomic(data, fingerprint):
                 unit_price=listing.effective_price,
                 quantity=quantity,
                 subtotal=item_subtotal,
-                image_url=listing.product.thumbnail_url,
+                image_url=listing.product.primary_image_url,
             )
             for listing, quantity, item_subtotal in prepared_items
         ]

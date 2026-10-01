@@ -11,7 +11,8 @@ A fonte de verdade é `docs/plano_implementacao_prohall.md`. Antes de alterar c�
 - frontend: React + Vite, publicado na Vercel;
 - backend: Django + Django REST Framework, publicado no Railway;
 - banco: PostgreSQL local e Railway PostgreSQL em produção;
-- administração: Django Admin;
+- administração principal: painel React em `/admin`, consumindo API DRF protegida para usuários `is_staff`;
+- contingência operacional: Django Admin mantido no backend em `/admin/`;
 - origem dos produtos: API pública DummyJSON;
 - produto importado e anúncio comercial são entidades separadas.
 
@@ -52,6 +53,8 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 - preservar mudanças existentes do usuário;
 - criar migrations para toda alteração de modelo;
 - adicionar ou atualizar testes para regras de negócio;
+- ao inserir uma nova classe em arquivo de testes existente, conferir os limites das classes e listar os métodos descobertos antes de executar a suíte;
+- testes concorrentes com threads devem fechar explicitamente todas as conexões de banco abertas por cada worker;
 - executar verificações proporcionais ao risco;
 - ao terminar, registrar o trabalho em `vault/diario.md`;
 - registrar decisões relevantes em `vault/decisoes/`;
@@ -60,8 +63,8 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 
 ## Modelos por fase
 
-- usar GPT-5.6 Sol — Medium nas fases 1, 4, 6, 9 e 12;
-- usar GPT-5.6 Sol — High nas fases 0, 2, 3, 5, 7, 8, 10 e 11;
+- usar GPT-5.6 Sol — Medium nas fases 1, 4, 6, 9, 12 e 15;
+- usar GPT-5.6 Sol — High nas fases 0, 2, 3, 5, 7, 8, 10, 11, 13 e 14;
 - antes de começar cada fase, lembrar o responsável de selecionar a configuração indicada.
 
 ## Comandos

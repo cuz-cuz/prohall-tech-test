@@ -10,6 +10,9 @@ import { SearchPage } from './pages/SearchPage'
 import { CartPage } from './pages/CartPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { PaymentResultPage } from './pages/PaymentResultPage'
+import { MyOrdersPage } from './pages/MyOrdersPage'
+import { CustomerAccessPage } from './pages/CustomerAccessPage'
+import { CatalogPage } from './pages/CatalogPage'
 import './App.css'
 
 export default function App() {
@@ -19,11 +22,14 @@ export default function App() {
         <Route element={<StorefrontLayout />}>
           <Route index element={<HomePage />} />
           <Route path="menu/:slug" element={<MenuPage />} />
+          <Route path="produtos" element={<CatalogPage />} />
           <Route path="produto/:slug" element={<ProductDetailPage />} />
           <Route path="busca" element={<SearchPage />} />
           <Route path="carrinho" element={<CartPage />} />
           <Route path="checkout" element={<CheckoutPage />} />
           <Route path="checkout/resultado" element={<PaymentResultPage />} />
+          <Route path="meus-pedidos" element={<MyOrdersPage />} />
+          <Route path="acesso" element={<CustomerAccessPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
