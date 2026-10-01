@@ -76,6 +76,8 @@ As listagens de anúncios e de menus são paginadas. Aceitam `page`, `page_size`
 
 O checkout recebe nome, e-mail, itens, preços esperados, uma chave UUID de idempotência e somente os quatro dígitos fictícios usados na simulação. Nunca informe um cartão real: `0000` simula recusa e qualquer outro final de quatro dígitos simula aprovação. Preços e estoque são confirmados novamente pelo backend; somente pedidos aprovados reduzem o estoque.
 
+Não existe tela de cadastro: a conta do cliente é criada no primeiro checkout, identificada pelo e-mail normalizado, e o acesso posterior é feito por código temporário, sem senha. Cada pedido guarda o nome informado naquela compra, então atualizar o nome da conta não altera o histórico já registrado.
+
 Após o checkout, o navegador recebe uma sessão HttpOnly e vê somente os pedidos ligados àquela conta. Para acessar em outro navegador, solicite um código de seis dígitos pelo e-mail usado na compra; ele expira em 10 minutos, só pode ser usado uma vez e bloqueia após cinco tentativas. Em desenvolvimento (`DEBUG=True`), o backend usa e-mail em memória e mostra o código na resposta para a demonstração, sem registrá-lo em logs. Em produção, configure `EMAIL_BACKEND` para um provedor ou SMTP, junto das variáveis `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` e `EMAIL_USE_TLS`; o backend recusa iniciar em produção com o provedor em memória.
 
 ### Frontend

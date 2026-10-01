@@ -27,16 +27,23 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = (
         "public_id",
         "customer",
+        "customer_name",
         "status",
         "payment_status",
         "total",
         "created_at",
     )
     list_filter = ("status", "payment_status", "created_at")
-    search_fields = ("=public_id", "customer__name", "customer__email")
+    search_fields = (
+        "=public_id",
+        "customer_name",
+        "customer__name",
+        "customer__email",
+    )
     readonly_fields = (
         "public_id",
         "customer",
+        "customer_name",
         "status",
         "payment_status",
         "subtotal",

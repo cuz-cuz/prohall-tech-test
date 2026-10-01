@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from apps.customers.models import Customer, normalize_customer_email
+from apps.customers.models import normalize_customer_email
 
 from .models import Order, OrderItem
 
@@ -60,12 +60,6 @@ class CheckoutSerializer(StrictSerializer):
         return value
 
 
-class CustomerSummarySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Customer
-        fields = ("name", "email")
-
-
 class OrderItemSerializer(serializers.ModelSerializer):
     listing_id = serializers.IntegerField(read_only=True)
 
@@ -84,7 +78,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    customer = CustomerSummarySerializer(read_only=True)
+    customer = serializers.SerializerMethodField()
     items = OrderItemSerializer(many=True, read_only=True)
 
     class Meta:
@@ -100,6 +94,12 @@ class OrderSerializer(serializers.ModelSerializer):
             "items",
             "created_at",
         )
+
+    def get_customer(self, order):
+        # The name is the snapshot taken at checkout, so renaming the account
+        # never relabels past orders. The e-mail is the account identity and
+        # cannot change without becoming a different customer.
+        return {"name": order.customer_name, "email": order.customer.email}
 
 
 class CustomerAccessRequestSerializer(StrictSerializer):

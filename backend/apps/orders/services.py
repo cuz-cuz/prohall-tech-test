@@ -248,6 +248,7 @@ def _checkout_order_atomic(data, fingerprint):
     )
     order = Order.objects.create(
         customer=customer,
+        customer_name=customer_data["name"],
         status=order_status,
         payment_status=payment_status,
         subtotal=subtotal,

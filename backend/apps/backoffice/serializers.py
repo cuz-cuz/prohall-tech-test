@@ -72,7 +72,8 @@ class AdminImportedProductSerializer(serializers.ModelSerializer):
 
 
 class AdminOrderSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    # Snapshot taken at checkout, so an account rename never rewrites history.
+    customer_name = serializers.CharField(read_only=True)
     customer_email = serializers.EmailField(source="customer.email", read_only=True)
     item_count = serializers.IntegerField(read_only=True)
 

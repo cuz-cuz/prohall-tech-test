@@ -316,7 +316,12 @@ class AdminOrderListView(StaffAPIViewMixin, generics.ListAPIView):
         )
         query = self.request.query_params.get("q", "").strip()
         if query:
-            queryset = queryset.filter(Q(customer__name__icontains=query) | Q(customer__email__icontains=query))
+            # The table shows the snapshot, so it has to be searchable too.
+            queryset = queryset.filter(
+                Q(customer_name__icontains=query)
+                | Q(customer__name__icontains=query)
+                | Q(customer__email__icontains=query)
+            )
         order_status = self.request.query_params.get("status", "").strip()
         if order_status in Order.Status.values:
             queryset = queryset.filter(status=order_status)

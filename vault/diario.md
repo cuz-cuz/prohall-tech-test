@@ -664,3 +664,33 @@ Antes do deploy e da entrega, o projeto ganhará uma área administrativa React 
 - 11 testes do backoffice aprovados em PostgreSQL;
 - 33 testes frontend, lint e build de produção aprovados;
 - `manage.py check` e `git diff --check` aprovados.
+
+## 1º de outubro de 2026 — Snapshot do nome do comprador no pedido
+
+### Entregue
+
+- `Order.customer_name` passou a guardar o nome informado no checkout, junto dos snapshots já existentes em `OrderItem`;
+- migration `0003_order_customer_name` adiciona o campo e copia o nome atual da conta para os pedidos anteriores, com reversão `noop`;
+- `OrderSerializer` lê o nome do snapshot e mantém o e-mail vindo da conta, que é a identidade e não muda sem virar outro cliente;
+- a forma do JSON (`customer.name` e `customer.email`) foi preservada, sem alteração no frontend;
+- `AdminOrderSerializer` passou a exibir o snapshot, e a busca de pedidos do painel consulta o snapshot, o nome da conta e o e-mail;
+- Django Admin expõe `customer_name` como campo somente leitura, pesquisável.
+
+### Motivo
+
+O checkout já atualizava o nome da conta em compras seguintes (`services.py`), e o histórico lia esse nome ao vivo. Um cliente que digitasse o nome de outra forma renomeava retroativamente todos os pedidos anteriores. Decidido manter o acesso sem senha e corrigir apenas a fidelidade do histórico.
+
+### Validação
+
+- 79 testes backend aprovados em PostgreSQL;
+- novo teste de checkout garante que renomear a conta não altera o nome dos pedidos já feitos;
+- novo teste de migration aplica `0002` com dois clientes e pedidos, migra para `0003` e confirma que cada pedido recebe o nome do seu próprio cliente;
+- o teste de migration foi verificado por inversão: com o backfill desativado ele falha com `'' != 'Ana Lima'`;
+- `manage.py check` e `makemigrations --check --dry-run` aprovados;
+- 33 testes frontend, lint e build de produção aprovados;
+- migration aplicada no banco local de desenvolvimento.
+
+### Próximo
+
+- antes da Fase 14, selecionar **GPT-5.6 Sol — High**;
+- a suíte PostgreSQL voltou a rodar nesta máquina; a pendência registrada na Fase 11 está resolvida.

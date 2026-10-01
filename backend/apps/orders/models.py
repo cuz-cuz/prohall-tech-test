@@ -24,6 +24,7 @@ class Order(models.Model):
         on_delete=models.PROTECT,
         related_name="orders",
     )
+    customer_name = models.CharField(max_length=150)
     status = models.CharField(max_length=32, choices=Status.choices)
     payment_status = models.CharField(max_length=16, choices=PaymentStatus.choices)
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)

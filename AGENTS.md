@@ -28,7 +28,7 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 6. Checkout deve recalcular preços e bloquear estoque dentro de transação.
 7. Cartão simulado terminado em `0000` é recusado; qualquer outro é aprovado.
 8. Pagamento recusado não reduz estoque.
-9. `OrderItem` guarda snapshot de nome, preço, SKU e imagem.
+9. `OrderItem` guarda snapshot de nome, preço, SKU e imagem; `Order` guarda snapshot do nome do comprador. Histórico de pedido nunca lê dado que ainda pode mudar.
 10. Datas são persistidas em UTC e exibidas em `America/Sao_Paulo`.
 11. Cliente só pode consultar os próprios pedidos.
 12. Importação do DummyJSON é paginada, idempotente e não sobrescreve anúncios.

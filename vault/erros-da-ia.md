@@ -315,3 +315,17 @@ A primeira varredura pré-commit de possíveis segredos combinou aspas e barras 
 ### Correção e prevenção
 
 A verificação foi repetida com padrões menores passados em argumentos literais separados para o `rg`. Em PowerShell, varreduras complexas devem preferir múltiplas opções `-e` com aspas simples, evitando uma única expressão com níveis concorrentes de escape.
+
+## 1º de outubro de 2026 — Diagnóstico afirmado sem ler o trecho decisivo
+
+### Erro
+
+Ao explicar o cadastro de clientes, foi afirmado que o nome do cliente não era atualizado em compras seguintes, com base apenas em `_get_or_create_customer`, onde o nome aparece em `defaults`. O bloco imediatamente posterior em `_checkout_order_atomic` já atualizava o nome quando ele mudava. O diagnóstico entregue ao responsável estava pela metade: o problema real não era a falta de atualização, mas a ausência de snapshot no pedido.
+
+### Correção e prevenção
+
+A afirmação foi corrigida na mensagem seguinte, antes de qualquer alteração de código, e o conserto foi redirecionado para o snapshot. Antes de apontar a ausência de um comportamento, localizar todos os pontos que escrevem no campo em questão — não apenas o de criação — e confirmar lendo o fluxo completo da função que o utiliza.
+
+### Consequência evitada
+
+Corrigir somente a atualização do nome teria ativado a reescrita retroativa do histórico em vez de resolvê-la, porque a atualização já existia e o snapshot não.

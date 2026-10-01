@@ -5,7 +5,8 @@ from decimal import Decimal
 
 from django.core import mail
 from django.core.cache import cache
-from django.db import IntegrityError, close_old_connections, connections, transaction
+from django.db import IntegrityError, close_old_connections, connection, connections, transaction
+from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 from django.test import TransactionTestCase, override_settings
 from rest_framework import status
@@ -114,6 +115,7 @@ class CustomerOrdersAndAccessTests(APITestCase):
 
         return Order.objects.create(
             customer=customer,
+            customer_name=customer.name,
             status=Order.Status.PAYMENT_APPROVED,
             payment_status=Order.PaymentStatus.APPROVED,
             subtotal=Decimal("12.50"),
@@ -455,6 +457,33 @@ class CheckoutAdditionalAPITests(CheckoutAPITests):
         self.assertEqual(customer.name, "Ana Souza")
         self.assertEqual(customer.orders.count(), 2)
 
+    def test_renaming_the_account_keeps_the_name_of_each_past_order(self):
+        first = self.client.post(self.url, self.payload(quantity=1), format="json")
+        renamed = self.payload(quantity=1)
+        renamed["customer"] = {"name": "Ana Souza", "email": "ana@example.com"}
+        second = self.client.post(self.url, renamed, format="json")
+
+        self.assertEqual(first.data["customer"]["name"], "Ana Lima")
+        self.assertEqual(second.data["customer"]["name"], "Ana Souza")
+
+        # The account carries the newest name, each order carries its own.
+        self.assertEqual(Customer.objects.get().name, "Ana Souza")
+        self.assertEqual(
+            Order.objects.get(public_id=first.data["public_id"]).customer_name,
+            "Ana Lima",
+        )
+
+        # Reading the stored order back must not fall through to the account.
+        listed = self.client.get(reverse("orders:my-orders"))
+        self.assertEqual(
+            [order["customer"]["name"] for order in listed.data],
+            ["Ana Souza", "Ana Lima"],
+        )
+        self.assertEqual(
+            {order["customer"]["email"] for order in listed.data},
+            {"ana@example.com"},
+        )
+
     def test_database_rejects_total_different_from_subtotal(self):
         response = self.client.post(
             self.url,
@@ -568,3 +597,53 @@ class CheckoutConcurrencyTests(TransactionTestCase):
         self.listing.refresh_from_db()
         self.assertEqual(self.listing.stock_quantity, 0)
         self.assertEqual(Order.objects.count(), 1)
+
+
+class OrderCustomerNameBackfillTests(TransactionTestCase):
+    """The snapshot column is added to a table that already holds orders."""
+
+    migrate_from = ("orders", "0002_order_orders_order_total_matches_subtotal")
+    migrate_to = ("orders", "0003_order_customer_name")
+
+    def tearDown(self):
+        # Leave the schema at the latest migration for the remaining tests.
+        MigrationExecutor(connection).migrate([self.migrate_to])
+
+    def test_backfill_copies_the_account_name_into_existing_orders(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate([self.migrate_from])
+        old_apps = executor.loader.project_state([self.migrate_from]).apps
+        OldCustomer = old_apps.get_model("customers", "Customer")
+        OldOrder = old_apps.get_model("orders", "Order")
+
+        first = OldCustomer.objects.create(name="Ana Lima", email="ana@example.com")
+        second = OldCustomer.objects.create(name="Bruno Lima", email="bruno@example.com")
+        orders = {
+            customer.email: OldOrder.objects.create(
+                customer=customer,
+                status=Order.Status.PAYMENT_APPROVED,
+                payment_status=Order.PaymentStatus.APPROVED,
+                subtotal=Decimal("12.50"),
+                total=Decimal("12.50"),
+                payment_last_four="4242",
+                idempotency_key=uuid.uuid4(),
+                idempotency_fingerprint="a" * 64,
+            )
+            for customer in (first, second)
+        }
+
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate([self.migrate_to])
+        new_apps = executor.loader.project_state([self.migrate_to]).apps
+        NewOrder = new_apps.get_model("orders", "Order")
+
+        # Each order must receive its own customer's name, not the first one.
+        self.assertEqual(
+            NewOrder.objects.get(pk=orders["ana@example.com"].pk).customer_name,
+            "Ana Lima",
+        )
+        self.assertEqual(
+            NewOrder.objects.get(pk=orders["bruno@example.com"].pk).customer_name,
+            "Bruno Lima",
+        )
