@@ -995,3 +995,12 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - telas conferidas em 390 px com Chrome headless: banner inteiro, barra de filtros, modal, checkout com cartão e Pix;
 - abrir o último produto de uma listagem rolada até 10.130 px levou a página do produto ao topo (`scrollY` 0);
 - o teste de foco do alerta de estoque falhou uma vez e passou nas duas execuções seguintes; fica registrado como possível instabilidade.
+
+## 1º de outubro de 2026 — Busca pela lupa, consultas em português e usuário de teste
+
+- a busca deixou de navegar enquanto o cliente digita: o campo mostra até cinco sugestões e a página de resultados abre pela lupa ou Enter, preservando o critério do enunciado de responder durante a digitação;
+- o botão "Buscar" virou uma lupa com nome acessível "Buscar";
+- consultas em português encontram produtos em inglês por um dicionário do nicho; "perfume pra presente" retorna os cinco perfumes, "bolsa de couro" as bolsas de couro e "batom vermelho" o batom vermelho primeiro;
+- a primeira versão casava a tradução "red" com "inspired"; termos traduzidos passaram a exigir início de palavra, com teste de regressão;
+- usuário de teste do painel `admin` / `Admin@123` documentado no README, em `backend/.env.example` e no `docker-compose.yml`, como pede o enunciado;
+- 118 testes backend e 57 testes frontend aprovados; lint e build aprovados; sugestões conferidas em 390 px com Chrome headless.

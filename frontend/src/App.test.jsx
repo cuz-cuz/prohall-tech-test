@@ -303,7 +303,7 @@ describe('Mosaico storefront', () => {
     expect(screen.getByText(/tente um termo mais curto/i)).toBeInTheDocument()
   })
 
-  it('waits before searching while the customer types', async () => {
+  it('previews suggestions while typing without leaving the page', async () => {
     vi.useFakeTimers()
     mockSuccessfulApi()
 
@@ -313,25 +313,46 @@ describe('Mosaico storefront', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.change(screen.getByRole('searchbox', { name: /buscar produtos/i }), {
-      target: { value: 'cafeteira' },
-    })
+    const field = screen.getByRole('combobox', { name: /buscar produtos/i })
+    fireEvent.change(field, { target: { value: 'cafeteira' } })
 
-    expect(
-      fetch.mock.calls.some(([url]) => url.includes('/listings/search/')),
-    ).toBe(false)
+    expect(fetch.mock.calls.some(([url]) => url.includes('/listings/search/'))).toBe(false)
 
     await act(async () => {
-      vi.advanceTimersByTime(350)
+      vi.advanceTimersByTime(300)
+      await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
     })
+    vi.useRealTimers()
 
-    expect(
-      fetch.mock.calls.some(([url]) =>
-        url.includes('/listings/search/?q=cafeteira&page=1'),
-      ),
-    ).toBe(true)
+    expect(fetch.mock.calls.some(([url]) =>
+      url.includes('/listings/search/?q=cafeteira&page=1&page_size=5'),
+    )).toBe(true)
+    const suggestions = await screen.findByRole('listbox', { name: /sugestões de produtos/i })
+    expect(within(suggestions).getByRole('option', { name: /cafeteira espresso/i })).toBeInTheDocument()
+    expect(field).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('heading', { name: /resultados para/i })).not.toBeInTheDocument()
+
+    fireEvent.click(within(suggestions).getByRole('option', { name: /cafeteira espresso/i }))
+    expect(await screen.findByRole('heading', { level: 1, name: /cafeteira espresso/i })).toBeInTheDocument()
+  })
+
+  it('opens the results page only when the search is submitted', async () => {
+    mockSuccessfulApi()
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByRole('combobox', { name: /buscar produtos/i }), {
+      target: { value: 'Cafeteira' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^buscar$/i }))
+
+    expect(await screen.findByRole('heading', { name: /resultados para “cafeteira”/i })).toBeInTheDocument()
   })
 
   it('adds a product to the cart and updates its header count', async () => {

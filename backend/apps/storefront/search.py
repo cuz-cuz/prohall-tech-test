@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from collections import Counter, defaultdict
 from difflib import SequenceMatcher
 
 from django.contrib.postgres.search import TrigramWordSimilarity
@@ -22,6 +23,8 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 
 from apps.catalog.models import Listing, Menu
+
+from .query_expansion import expand_query
 
 
 # Directional word similarity can produce high scores for unrelated short
@@ -63,7 +66,7 @@ def _field_score(value: str, query: str, weight: float) -> float:
     return weight * similarity if similarity >= 0.45 else 0.0
 
 
-def _portable_search(query: str):
+def _portable_ranking(query: str):
     listings = (
         Listing.objects.filter(active=True)
         .select_related("product")
@@ -87,7 +90,11 @@ def _portable_search(query: str):
             ranked.append((score, listing.title.casefold(), listing.id, listing))
 
     ranked.sort(key=lambda item: (-item[0], item[1], item[2]))
-    return [item[3] for item in ranked]
+    return ranked
+
+
+def _portable_search(query: str):
+    return [item[3] for item in _portable_ranking(query)]
 
 
 def _postgres_search(query: str):
@@ -184,8 +191,97 @@ def _postgres_search(query: str):
     ).order_by("-search_rank", "title", "id")
 
 
+def _scores(query: str):
+    if connection.vendor == "postgresql":
+        return _postgres_search(query).values_list("id", "search_rank")
+    return [(item[2], item[0]) for item in _portable_ranking(query)]
+
+
+def _searchable_words(listing_ids):
+    """Normalized words of each listing's searchable fields, keyed by id."""
+
+    listings = (
+        Listing.objects.filter(id__in=listing_ids)
+        .select_related("product")
+        .prefetch_related(Prefetch("menus", queryset=Menu.objects.filter(active=True)))
+    )
+    return {
+        listing.id: normalize_search_term(
+            " ".join(
+                (
+                    listing.title,
+                    listing.description,
+                    listing.product.brand or "",
+                    listing.product.category or "",
+                    *(menu.name for menu in listing.menus.all()),
+                )
+            )
+        ).split()
+        for listing in listings
+    }
+
+
+def _starts_a_word(term: str, words) -> bool:
+    term_words = term.split()
+    return any(
+        all(
+            index + offset < len(words) and words[index + offset].startswith(part)
+            for offset, part in enumerate(term_words)
+        )
+        for index in range(len(words))
+    )
+
+
+def _expanded_search(query: str, concepts):
+    """Rank by how many concepts a listing covers, then by summed relevance.
+
+    "perfume pra presente" becomes the concepts perfume (with fragrance, eau)
+    and presente; a perfume covers one of them and still comes back, while a
+    listing matching every concept would rank above it.
+    """
+
+    scores = defaultdict(float)
+    coverage = Counter()
+    if len(query.split()) > 1:
+        for listing_id, score in _scores(query):
+            scores[listing_id] += score * 2
+    for concept in concepts:
+        typed_word, *translations = concept
+        matched = set()
+        for listing_id, score in _scores(typed_word):
+            scores[listing_id] += score
+            matched.add(listing_id)
+        for term in translations:
+            term_scores = dict(_scores(term))
+            # Translations only count at the start of a word, so "red" (from
+            # "vermelho") does not match "inspired".
+            words = _searchable_words(term_scores)
+            for listing_id, score in term_scores.items():
+                if _starts_a_word(term, words.get(listing_id, ())):
+                    scores[listing_id] += score
+                    matched.add(listing_id)
+        coverage.update(matched)
+
+    ordered = sorted(scores, key=lambda listing_id: (-coverage[listing_id], -scores[listing_id], listing_id))
+    if not ordered:
+        return Listing.objects.none()
+    return (
+        Listing.objects.filter(id__in=ordered)
+        .select_related("product")
+        .order_by(
+            Case(
+                *(When(id=listing_id, then=Value(position)) for position, listing_id in enumerate(ordered)),
+                output_field=FloatField(),
+            )
+        )
+    )
+
+
 def search_active_listings(term: str):
     query = normalize_search_term(term)
+    concepts = expand_query(query)
+    if concepts and concepts != [(query,)]:
+        return _expanded_search(query, concepts)
     if connection.vendor == "postgresql":
         return _postgres_search(query)
     return _portable_search(query)

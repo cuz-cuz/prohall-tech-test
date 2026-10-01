@@ -411,6 +411,71 @@ class StorefrontAPITests(APITestCase):
 
         self.assertEqual(response.data["results"][0]["slug"], title_match.slug)
 
+    def test_portuguese_search_finds_english_products(self):
+        perfume = self.create_listing(
+            external_id=30, slug="gucci-bloom", title="Gucci Bloom Eau de",
+            brand="Gucci", category="fragrances",
+        )
+        lipstick = self.create_listing(
+            external_id=31, slug="red-lipstick", title="Red Lipstick",
+            category="beauty",
+        )
+        bag = self.create_listing(
+            external_id=32, slug="leather-bag", title="Heshe Women's Leather Bag",
+            category="womens-bags",
+        )
+        url = reverse("storefront:listing-search")
+
+        for term, expected in (
+            ("perfume pra presente", perfume),
+            ("Batom", lipstick),
+            ("batons vermelhos", lipstick),
+            ("bolsa de couro", bag),
+        ):
+            with self.subTest(term=term):
+                response = self.client.get(url, {"q": term})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["results"][0]["slug"], expected.slug)
+
+    def test_listing_covering_more_words_ranks_first(self):
+        red_lipstick = self.create_listing(
+            external_id=33, slug="red-lipstick", title="Red Lipstick", category="beauty",
+        )
+        self.create_listing(
+            external_id=34, slug="red-shoes", title="Red Shoes", category="womens-shoes",
+        )
+
+        response = self.client.get(
+            reverse("storefront:listing-search"), {"q": "batom vermelho"}
+        )
+
+        slugs = [item["slug"] for item in response.data["results"]]
+        self.assertEqual(slugs[0], red_lipstick.slug)
+        self.assertIn("red-shoes", slugs)
+
+    def test_translated_terms_match_whole_words_only(self):
+        self.create_listing(
+            external_id=35, slug="tropical-earring", title="Tropical Earring",
+            description="Inspired by summer flowers.", category="womens-jewellery",
+        )
+        red = self.create_listing(
+            external_id=36, slug="red-lipstick", title="Red Lipstick", category="beauty",
+        )
+
+        response = self.client.get(
+            reverse("storefront:listing-search"), {"q": "vermelho"}
+        )
+
+        self.assertEqual([item["slug"] for item in response.data["results"]], [red.slug])
+
+    def test_filler_words_alone_do_not_match_everything(self):
+        response = self.client.get(
+            reverse("storefront:listing-search"), {"q": "algo pra cozinha"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+
     def test_search_results_are_paginated(self):
         for position in range(13):
             self.create_listing(

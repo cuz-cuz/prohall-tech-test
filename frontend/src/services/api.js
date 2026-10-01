@@ -113,8 +113,9 @@ export function getListing(slug, options) {
   return requestJson(`/listings/${encodeURIComponent(slug)}/`, options)
 }
 
-export function searchListings(query, page = 1, options) {
+export function searchListings(query, page = 1, { pageSize, ...options } = {}) {
   const params = new URLSearchParams({ q: query, page: String(page) })
+  if (pageSize) params.set('page_size', String(pageSize))
   return requestJson(`/listings/search/?${params.toString()}`, options)
 }
 

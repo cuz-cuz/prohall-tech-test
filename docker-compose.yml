@@ -27,6 +27,10 @@ services:
       ALLOWED_HOSTS: localhost,127.0.0.1,backend
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       CSRF_TRUSTED_ORIGINS: http://localhost:5173
+      DEMO_ADMIN_USERNAME: admin
+      DEMO_ADMIN_EMAIL: admin@mosaico.local
+      # Credencial pública de teste exigida pelo desafio (também no README).
+      DEMO_ADMIN_PASSWORD: Admin@123
       DEMO_RESET_ENABLED: "True"
       DEMO_RESET_COOLDOWN_SECONDS: "10"
     ports:

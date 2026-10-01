@@ -2,7 +2,21 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fases 11 a 13 concluídas; a Fase 14 prepara e executa a publicação no Railway e na Vercel.
+> Estado atual: loja publicada no Railway (API e PostgreSQL), na Vercel (frontend) e no Cloudflare R2 (imagens de banners).
+
+## Acesso para avaliação
+
+| | Endereço |
+|---|---|
+| Loja | <https://mosaico-alpha.vercel.app> |
+| Painel administrativo | <https://mosaico-alpha.vercel.app/admin> |
+
+Usuário de teste do painel:
+
+- **Usuário:** `admin`
+- **Senha:** `Admin@123`
+
+O mesmo usuário é criado localmente pelo `seed_demo` (ver abaixo). Ele é superusuário e pode usar **Configurações → Restaurar demonstração** para devolver a loja ao estado inicial depois dos testes. O pagamento é simulado: use o final `4242` para aprovar e `0000` para recusar no cartão, ou escolha Pix e simule o pagamento confirmado ou expirado.
 
 ## Requisitos
 
@@ -48,15 +62,15 @@ Depois da importação, prepare anúncios, menus e banners idempotentes com:
 .\.venv\Scripts\python.exe .\backend\manage.py seed_demo
 ```
 
-Para o comando também criar ou atualizar um administrador local, defina no `backend/.env`:
+O comando também cria ou atualiza o administrador de teste com as variáveis abaixo, que já vêm preenchidas em `backend/.env.example` e no `docker-compose.yml`:
 
 ```dotenv
 DEMO_ADMIN_USERNAME=admin
 DEMO_ADMIN_EMAIL=admin@mosaico.local
-DEMO_ADMIN_PASSWORD=escolha-uma-senha-local
+DEMO_ADMIN_PASSWORD=Admin@123
 ```
 
-Nenhuma senha administrativa é versionada. Sem `DEMO_ADMIN_PASSWORD`, os dados da vitrine são criados e a criação do usuário é ignorada. O painel administrativo React fica em <http://localhost:5173/admin>; o Django Admin em <http://localhost:8000/admin/> é apenas contingência.
+Essa é uma credencial pública de demonstração, publicada de propósito para a avaliação; não a reutilize em outro ambiente. Sem `DEMO_ADMIN_PASSWORD`, os dados da vitrine são criados e a criação do usuário é ignorada. O painel administrativo React fica em <http://localhost:5173/admin>; o Django Admin em <http://localhost:8000/admin/> é apenas contingência.
 
 ### Restaurar a demonstração
 
@@ -112,12 +126,18 @@ Rotas públicas da interface:
 - `/produtos` — catálogo paginado com filtros e ordenação;
 - `/menu/{slug}` — anúncios paginados e filtráveis organizados pelo menu;
 - `/busca?q={termo}` — resultados paginados e ordenados por relevância;
-- `/carrinho` — itens selecionados, estoque, condições de pagamento e subtotal estimado;
-- `/checkout` — identificação e pagamento simulado;
+- `/carrinho` — itens selecionados, estoque, condições de pagamento e resumo com descontos e frete;
+- `/checkout` — identificação e pagamento simulado por cartão ou Pix;
 - `/checkout/resultado` — confirmação de aprovação ou recusa;
 - `/meus-pedidos` — histórico do cliente autenticado;
 - `/acesso` — acesso posterior por código temporário enviado ao e-mail;
 - `/produto/{slug}` — galeria, quantidade, compartilhamento e detalhes comerciais do anúncio.
+
+### Busca
+
+Enquanto o cliente digita, o campo mostra até cinco sugestões de produtos sem sair da página; a página de resultados abre ao clicar na lupa ou apertar Enter. A busca ignora maiúsculas, acentos e palavras incompletas e pondera título, marca, categoria, menu e descrição.
+
+Os produtos do DummyJSON estão em inglês, então buscas em português passam por um dicionário do nicho da loja (`backend/apps/storefront/query_expansion.py`): "batom vermelho" procura também *red lipstick*, "bolsa de couro" procura *leather bag*, e palavras de ligação como "pra" e "algo" são ignoradas. Produtos que atendem mais palavras da busca aparecem primeiro. É uma busca semântica simples e determinística, sem modelo de IA nem chamada externa; termos fora do dicionário seguem a busca textual normal.
 
 A vitrine informa 10% de desconto no Pix, parcelamento em até 12 vezes e frete grátis a partir de um valor mínimo. Pix e parcelamento vêm de `PIX_DISCOUNT_PERCENT` e `MAX_INSTALLMENTS`.
 
@@ -159,4 +179,4 @@ A suíte backend inclui dois checkouts concorrentes disputando a última unidade
 - [Sistema visual](DESIGN.md)
 - [Memória do projeto](vault/diario.md)
 
-As credenciais administrativas não são versionadas. Crie um administrador local com `docker compose exec backend python manage.py createsuperuser` ou configure `DEMO_ADMIN_PASSWORD` apenas no `.env` local antes de executar `seed_demo`.
+O único acesso administrativo versionado é o usuário de teste público `admin` / `Admin@123`, pedido pelo desafio. Segredos de produção (chave do Django, banco, R2 e SMTP) ficam apenas nos painéis das plataformas.

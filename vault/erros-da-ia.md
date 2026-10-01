@@ -383,3 +383,13 @@ O roteiro de deploy ativava `SECURE_SSL_REDIRECT` e o healthcheck do Railway em 
 ### Correção e prevenção
 
 `SECURE_REDIRECT_EXEMPT` isenta somente `/api/health/`, com testes que confirmam que as demais rotas continuam redirecionando. Configurações de segurança que alteram respostas devem ser validadas contra o caminho exato usado pela plataforma de hospedagem.
+
+## 1º de outubro de 2026 — Tradução da busca casando dentro de outras palavras
+
+### Erro
+
+A expansão PT→EN reaproveitou a correspondência por substring da busca original. A tradução "red", vinda de "vermelho", passou a encontrar "Tropical Earring" porque a descrição contém "inspired".
+
+### Correção e prevenção
+
+Termos traduzidos só contam quando começam uma palavra; a palavra digitada pelo cliente mantém a correspondência parcial que permite termos incompletos. O erro foi encontrado conferindo as sugestões reais no navegador, não pelos testes, que usavam descrições curtas. Ao expandir consultas, testes devem incluir textos em que o termo apareça dentro de outra palavra.

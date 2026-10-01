@@ -32,7 +32,7 @@ A entrega ainda não está pronta. O código está sendo preparado para Railway 
 | Home, menus e banners | Concluído | A Home consome a configuração persistida no backend e possui navegação de banners por gesto e setas. |
 | Listagem e detalhe | Concluído | Catálogo geral, menus, paginação, filtros, ordenação, galeria e página de produto estão implementados. |
 | Promoções | Concluído | Preço anterior, preço vigente e percentual de desconto aparecem claramente. |
-| Busca obrigatória | Concluído | Busca por título, descrição, marca, categoria e menu; ignora caixa e acentos, aceita termos incompletos, ordena por relevância, usa debounce e cancela requisições anteriores. |
+| Busca obrigatória | Concluído | Busca por título, descrição, marca, categoria e menu; ignora caixa e acentos, aceita termos incompletos, ordena por relevância, sugere produtos enquanto o cliente digita (com debounce e cancelamento de requisições anteriores) e abre os resultados pela lupa; buscas em português encontram produtos em inglês por um dicionário do nicho. |
 | Carrinho | Concluído | Adiciona, altera quantidade, remove, respeita limites e persiste em `localStorage`. |
 | Checkout e pagamento | Concluído | O backend recalcula valores, bloqueia estoque e aplica a regra `0000` recusado; qualquer outro final de quatro dígitos é aprovado. |
 | Conta automática | Concluído | Nome e e-mail criam ou recuperam o cliente no checkout e estabelecem sessão segura. |
