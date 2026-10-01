@@ -5,6 +5,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
+from apps.catalog.niche import NICHE_CATEGORIES
 from apps.core.models import StoreSettings
 from apps.customers.models import Customer
 from apps.orders.models import Order
@@ -53,6 +54,7 @@ class AdminLoginSerializer(StrictSerializer):
 class AdminImportedProductSerializer(serializers.ModelSerializer):
     listing_count = serializers.IntegerField(read_only=True)
     image_url = serializers.CharField(source="primary_image_url", read_only=True)
+    in_niche = serializers.SerializerMethodField()
 
     class Meta:
         model = ImportedProduct
@@ -69,7 +71,13 @@ class AdminImportedProductSerializer(serializers.ModelSerializer):
             "availability_status",
             "last_synced_at",
             "listing_count",
+            "in_niche",
         )
+
+    def get_in_niche(self, obj):
+        # False marks what the import no longer brings: rows stored before the
+        # niche filter existed.
+        return obj.category in NICHE_CATEGORIES
 
 
 class AdminOrderSerializer(serializers.ModelSerializer):

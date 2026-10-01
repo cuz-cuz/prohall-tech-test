@@ -9,10 +9,11 @@ import { AdminSelect } from './AdminSelect'
 import { formatAdminDateTime } from './adminFormatters'
 
 const listingOptions = [{ value: '', label: 'Todos' }, { value: 'true', label: 'Com anúncio' }, { value: 'false', label: 'Sem anúncio' }]
+const nicheOptions = [{ value: '', label: 'Todos' }, { value: 'true', label: 'Dentro do nicho' }, { value: 'false', label: 'Fora do nicho' }]
 
 export function AdminProductsPage() {
   const [page, setPage] = useState(1)
-  const [filters, setFilters] = useState({ q: '', has_listing: '' })
+  const [filters, setFilters] = useState({ q: '', has_listing: '', niche: '' })
   const [applied, setApplied] = useState(filters)
   const loadProducts = useCallback((options) => getAdminProducts({ ...applied, page }, options), [applied, page])
   const state = useApiResource(loadProducts)
@@ -31,6 +32,7 @@ export function AdminProductsPage() {
       <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}>
         <label><span>Buscar</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Título, marca, categoria ou SKU" /></label>
         <AdminSelect label="Anúncios" value={filters.has_listing} options={listingOptions} onChange={(value) => setFilters({ ...filters, has_listing: value })} />
+        <AdminSelect label="Nicho" value={filters.niche} options={nicheOptions} onChange={(value) => setFilters({ ...filters, niche: value })} />
         <button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button>
       </form>
 
@@ -48,7 +50,7 @@ export function AdminProductsPage() {
                   {state.data.results.map((product) => (
                     <tr key={product.id}>
                       <td><div className="admin-product-cell">{product.image_url ? <img src={product.image_url} alt="" loading="lazy" /> : <span className="admin-product-cell__fallback" aria-hidden="true">M</span>}<span><strong>{product.title}</strong><small>{product.brand || 'Sem marca'} · ID {product.external_id}{product.sku ? ` · ${product.sku}` : ''}</small></span></div></td>
-                      <td>{formatCategory(product.category)}</td>
+                      <td>{formatCategory(product.category)}<small><span className={`admin-status admin-status--${product.in_niche ? 'active' : 'inactive'}`}>{product.in_niche ? 'No nicho' : 'Fora do nicho'}</span></small></td>
                       <td>{formatCurrency(product.source_price)}</td>
                       <td><strong>{product.source_stock}</strong><small>{product.availability_status || 'Status não informado'}</small></td>
                       <td>{product.listing_count}</td>

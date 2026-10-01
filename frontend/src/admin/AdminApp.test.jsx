@@ -38,7 +38,7 @@ const dashboardPayload = {
 }
 
 const productsPayload = {
-  count: 1,
+  count: 2,
   next: null,
   previous: null,
   results: [
@@ -55,6 +55,22 @@ const productsPayload = {
       availability_status: 'Em estoque',
       last_synced_at: '2026-09-30T11:00:00Z',
       listing_count: 1,
+      in_niche: true,
+    },
+    {
+      id: 2,
+      external_id: 77,
+      title: 'Notebook legado',
+      brand: 'Outra',
+      category: 'laptops',
+      sku: 'NB-77',
+      image_url: null,
+      source_price: '4999.00',
+      source_stock: 2,
+      availability_status: 'Em estoque',
+      last_synced_at: '2026-09-30T11:00:00Z',
+      listing_count: 0,
+      in_niche: false,
     },
   ],
 }
@@ -429,5 +445,24 @@ describe('Mosaico Admin', () => {
     await screen.findByText(/anúncio atualizado/i)
     const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/listings/') && options?.method === 'PATCH')
     expect(JSON.parse(call[1].body)).toMatchObject({ free_shipping: true })
+  })
+
+  it('marks which stored products are outside the store niche', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/produtos']}><App /></MemoryRouter>)
+
+    const table = await screen.findByRole('table', { name: /lista de produtos importados/i })
+    const rows = within(table).getAllByRole('row')
+    expect(within(rows[1]).getByText(/^no nicho$/i)).toBeInTheDocument()
+    expect(within(rows[2]).getByText(/^fora do nicho$/i)).toBeInTheDocument()
+
+    const trigger = screen.getByRole('combobox', { name: /nicho/i })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('option', { name: /fora do nicho/i }))
+    fireEvent.click(screen.getByRole('button', { name: /aplicar filtros/i }))
+
+    await waitFor(() => expect(
+      fetch.mock.calls.some(([url]) => url.includes('/admin/products/') && url.includes('niche=false')),
+    ).toBe(true))
   })
 })

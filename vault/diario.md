@@ -759,3 +759,26 @@ O valor só existia em variável de ambiente, exigindo deploy para mudar, e a re
 
 - segue pendente a conferência visual no navegador, inclusive das novas telas;
 - decidir sobre os 148 produtos fora do nicho ainda no banco.
+
+## 1º de outubro de 2026 — Marcação de nicho nos produtos e ajuste da sidebar
+
+### Entregue
+
+- API administrativa de produtos passou a expor `in_niche` e a aceitar o filtro `niche`;
+- tela de Produtos mostra o selo "No nicho" ou "Fora do nicho" ao lado da categoria e ganhou o filtro correspondente;
+- ritmo vertical da sidebar reduzido (`margin-top` 2.5rem para 1.5rem, item de 2.75rem para 2.4rem, `gap` 0.25rem para 0.15rem) para os nove itens caberem sem scrollbar interna; `overflow-y: auto` mantido apenas como proteção em telas muito baixas.
+
+### Motivo
+
+A importação já trazia só o nicho desde a mudança anterior, mas o responsável continuava vendo produtos masculinos e eletrônicos na tela de Produtos: são 148 linhas importadas antes do filtro. O selo torna a diferença visível em vez de confusa. A entrada Configurações foi o nono item do menu e estourou a altura da barra lateral.
+
+### Achado relevante
+
+- 14 anúncios fora do nicho estão **ativos na loja**: móveis, alimentos, decoração e cozinha. Não vieram de importação recente; são anteriores ao filtro. Precisam de decisão do responsável, porque desativá-los muda a vitrine.
+
+### Validação
+
+- 94 testes backend aprovados em PostgreSQL, com dois novos cobrindo `in_niche` e o filtro `niche`;
+- 42 testes frontend aprovados, incluindo os selos nas linhas e o filtro enviando `niche=false`;
+- lint e build de produção aprovados;
+- **não validado visualmente**: a extensão do Chrome segue desconectada, então a ausência da scrollbar na sidebar não foi confirmada em tela.

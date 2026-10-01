@@ -486,3 +486,37 @@ class AdminStoreSettingsTests(BackofficeFixtures, APITestCase):
         self.assertEqual(updated.status_code, status.HTTP_200_OK)
         self.assertTrue(updated.data["free_shipping"])
         self.assertTrue(Listing.objects.get(pk=listing_id).free_shipping)
+
+
+class AdminProductNicheTests(BackofficeFixtures, APITestCase):
+    def setUp(self):
+        super().setUp()
+        for external_id, category in ((10, "beauty"), (11, "womens-bags"), (12, "laptops")):
+            ImportedProduct.objects.create(
+                external_id=external_id,
+                title=f"Produto {external_id}",
+                category=category,
+                source_price=Decimal("10.00"),
+                last_synced_at=timezone.now(),
+            )
+
+    def by_external_id(self, response):
+        return {item["external_id"]: item["in_niche"] for item in response.data["results"]}
+
+    def test_products_report_whether_they_belong_to_the_niche(self):
+        response = self.authenticated_client().get(reverse("backoffice:products"))
+
+        self.assertEqual(
+            self.by_external_id(response),
+            {10: True, 11: True, 12: False},
+        )
+
+    def test_niche_filter_separates_stored_products(self):
+        client = self.authenticated_client()
+        url = reverse("backoffice:products")
+
+        inside = client.get(url, {"niche": "true"})
+        outside = client.get(url, {"niche": "false"})
+
+        self.assertEqual(sorted(self.by_external_id(inside)), [10, 11])
+        self.assertEqual(sorted(self.by_external_id(outside)), [12])

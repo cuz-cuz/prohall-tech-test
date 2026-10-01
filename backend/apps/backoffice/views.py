@@ -188,6 +188,11 @@ class AdminImportedProductListView(StaffAPIViewMixin, generics.ListAPIView):
         category = self.request.query_params.get("category", "").strip()
         if category:
             queryset = queryset.filter(category__iexact=category)
+        niche = self.request.query_params.get("niche", "").strip().lower()
+        if niche in {"true", "1"}:
+            queryset = queryset.filter(category__in=NICHE_CATEGORIES)
+        elif niche in {"false", "0"}:
+            queryset = queryset.exclude(category__in=NICHE_CATEGORIES)
         has_listing = self.request.query_params.get("has_listing", "").strip().lower()
         if has_listing in {"true", "1"}:
             queryset = queryset.filter(listing_count__gt=0)
