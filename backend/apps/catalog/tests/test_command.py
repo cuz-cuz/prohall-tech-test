@@ -65,23 +65,41 @@ class ImportProductsCommandTests(TestCase):
                 last_synced_at=timezone.now(),
             )
 
-        make(1, "beauty")
+        in_niche = make(1, "beauty")
         make(2, "mens-shirts")
         advertised = make(3, "laptops")
-        Listing.objects.create(
+        off_niche_listing = Listing.objects.create(
             product=advertised,
             slug="notebook",
             title="Notebook",
             price=Decimal("10.00"),
             stock_quantity=1,
+            active=True,
+        )
+        kept_listing = Listing.objects.create(
+            product=in_niche,
+            slug="serum",
+            title="Sérum",
+            price=Decimal("10.00"),
+            stock_quantity=1,
+            active=True,
         )
         stdout = StringIO()
 
         call_command("import_products", "--remover-fora-do-nicho", stdout=stdout)
 
-        self.assertIn("1 produto(s) fora do nicho removido(s)", stdout.getvalue())
+        self.assertIn(
+            "1 anúncio(s) fora do nicho desativado(s) e 1 produto(s) removido(s)",
+            stdout.getvalue(),
+        )
         self.assertIn("1 produto(s) fora do nicho foram preservados", stdout.getvalue())
+
+        # The orphan is gone; the advertised one stays, out of the storefront.
         self.assertEqual(
             sorted(ImportedProduct.objects.values_list("external_id", flat=True)),
             [1, 3],
         )
+        off_niche_listing.refresh_from_db()
+        kept_listing.refresh_from_db()
+        self.assertFalse(off_niche_listing.active)
+        self.assertTrue(kept_listing.active)

@@ -782,3 +782,28 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - 42 testes frontend aprovados, incluindo os selos nas linhas e o filtro enviando `niche=false`;
 - lint e build de produção aprovados;
 - **não validado visualmente**: a extensão do Chrome segue desconectada, então a ausência da scrollbar na sidebar não foi confirmada em tela.
+
+## 1º de outubro de 2026 — Limpeza dos produtos fora do nicho
+
+### Entregue
+
+- `--remover-fora-do-nicho` passou a fazer a limpeza completa: desativa os anúncios fora do nicho e só então apaga os produtos importados sem nenhum anúncio;
+- anúncios nunca são apagados, apenas desativados: pedidos apontam para eles e `Listing.product` é `PROTECT`, então os produtos anunciados também permanecem;
+- scrollbar da barra lateral confirmada pelo responsável como resolvida.
+
+### Executado no banco local, autorizado pelo responsável
+
+- 14 anúncios fora do nicho desativados (móveis, alimentos, decoração, cozinha);
+- 134 produtos importados sem anúncio removidos;
+- 14 produtos preservados por terem anúncio, agora inativo;
+- estado final: 60 produtos, sendo 46 do nicho; nenhum anúncio ativo fora do nicho;
+- a relação do que foi removido, preservado e desativado foi gravada antes da execução, fora do repositório, no scratchpad da sessão.
+
+### Consequência que precisa de decisão
+
+- a loja ficou com **10 anúncios ativos**: dos 46 produtos do nicho, 36 não têm anúncio. `seed_demo` cria anúncios idempotentes para eles e devolveria a vitrine cheia, mas cria dados de demonstração e não foi executado sem autorização.
+
+### Validação
+
+- 94 testes backend aprovados em PostgreSQL;
+- o teste do `--remover-fora-do-nicho` passou a verificar também que o anúncio fora do nicho fica inativo e que um anúncio do nicho continua ativo.

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.catalog.models import ImportedProduct
+from apps.catalog.models import ImportedProduct, Listing
 from apps.catalog.niche import NICHE_CATEGORIES
 from apps.catalog.services.dummyjson import DummyJSONError
 from apps.catalog.services.importer import ProductImportError, sync_products
@@ -26,8 +26,10 @@ class Command(BaseCommand):
             action="store_true",
             dest="prune",
             help=(
-                "Apaga produtos importados fora do nicho que não tenham nenhum "
-                "anúncio. Produtos com anúncio são preservados e relatados."
+                "Limpa o que está fora do nicho: desativa os anúncios fora do "
+                "nicho e apaga os produtos importados que não tenham nenhum "
+                "anúncio. Produtos com anúncio são preservados e relatados, "
+                "para que nenhum histórico de pedido perca a origem."
             ),
         )
 
@@ -74,20 +76,33 @@ class Command(BaseCommand):
             )
 
     def _prune(self, outside_niche):
-        """Delete only what no listing depends on; Listing.product is PROTECT."""
+        """Take what is off-niche out of the storefront, then drop the orphans.
+
+        Listings are only deactivated, never deleted: an order points at them,
+        and `Listing.product` is PROTECT, so their products stay as well.
+        """
 
         with transaction.atomic():
-            removable = outside_niche.filter(listings__isnull=True)
-            removed, _ = removable.delete()
+            deactivated = Listing.objects.filter(
+                product__in=outside_niche,
+                active=True,
+            ).update(active=False)
+            removable_ids = list(
+                outside_niche.filter(listings__isnull=True).values_list(
+                    "pk", flat=True
+                )
+            )
+            ImportedProduct.objects.filter(pk__in=removable_ids).delete()
             kept = outside_niche.count()
 
         self.stdout.write(
-            self.style.SUCCESS(f"{removed} produto(s) fora do nicho removido(s).")
+            self.style.SUCCESS(
+                f"{deactivated} anúncio(s) fora do nicho desativado(s) e "
+                f"{len(removable_ids)} produto(s) removido(s)."
+            )
         )
         if kept:
             self.stdout.write(
-                self.style.WARNING(
-                    f"{kept} produto(s) fora do nicho foram preservados porque "
-                    "ainda têm anúncio. Desative e remova o anúncio antes."
-                )
+                f"{kept} produto(s) fora do nicho foram preservados porque têm "
+                "anúncio. Os anúncios já estão inativos e fora da loja."
             )
