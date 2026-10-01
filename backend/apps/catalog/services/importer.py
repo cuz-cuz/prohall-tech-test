@@ -29,6 +29,13 @@ class ImportSummary:
         return self.created + self.updated
 
 
+@dataclass(frozen=True)
+class PreparedImport:
+    products: tuple[dict[str, Any], ...]
+    skipped: int
+    synced_at: Any
+
+
 def normalize_product(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ProductImportError("Product payload must be an object.")
@@ -89,6 +96,17 @@ def sync_products(
 ) -> ImportSummary:
     """Import the store's categories, or the whole source when categories is None."""
 
+    prepared = prepare_products(client=client, categories=categories)
+    return persist_products(prepared)
+
+
+def prepare_products(
+    *,
+    client: DummyJSONClient | None = None,
+    categories: Iterable[str] | None = NICHE_CATEGORIES,
+) -> PreparedImport:
+    """Download and validate a complete batch without changing the database."""
+
     selected = None if categories is None else frozenset(categories)
     owns_client = client is None
     importer_client = client or DummyJSONClient()
@@ -111,15 +129,24 @@ def sync_products(
         skipped_count = len(normalized_products) - len(kept)
         normalized_products = kept
 
-    synced_at = timezone.now()
+    return PreparedImport(
+        products=tuple(normalized_products),
+        skipped=skipped_count,
+        synced_at=timezone.now(),
+    )
+
+
+def persist_products(prepared: PreparedImport) -> ImportSummary:
+    """Persist a previously validated batch in the caller's transaction."""
+
     created_count = 0
     updated_count = 0
 
     with transaction.atomic():
-        for product in normalized_products:
+        for product in prepared.products:
             values = product.copy()
             external_id = values.pop("external_id")
-            values["last_synced_at"] = synced_at
+            values["last_synced_at"] = prepared.synced_at
             _, created = ImportedProduct.objects.update_or_create(
                 external_id=external_id,
                 defaults=values,
@@ -132,7 +159,7 @@ def sync_products(
     return ImportSummary(
         created=created_count,
         updated=updated_count,
-        skipped=skipped_count,
+        skipped=prepared.skipped,
     )
 
 

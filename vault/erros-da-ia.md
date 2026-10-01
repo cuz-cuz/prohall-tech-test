@@ -343,3 +343,23 @@ O cálculo foi reexecutado em Node, com o mesmo código do navegador, antes de q
 ### Consequência evitada
 
 A correção teria sido feita sobre código correto, trocando um arredondamento que já casava com o servidor.
+
+## 1º de outubro de 2026 — Seção administrativa bloqueada por estado duplicado no frontend
+
+### Erro
+
+A restauração da demonstração foi corretamente protegida no backend por `is_superuser`, mas o frontend repetiu essa autorização usando `auth.user.is_superuser` antes mesmo de consultar o endpoint. O estado do contexto preservado pelo Hot Reload não continha o campo novo e ocultou toda a seção, embora a sessão e o usuário no backend já fossem de superusuário.
+
+### Correção e prevenção
+
+A tela passou a consultar sempre o endpoint protegido: o backend continua sendo a única autoridade. Superusuários recebem os dados e veem a seção; usuários staff comuns recebem 403 e a seção permanece oculta. Interfaces não devem duplicar decisões de autorização com dados potencialmente antigos do cliente; flags locais servem apenas para apresentação depois que a autoridade respondeu.
+
+## 1º de outubro de 2026 — Constraint inserida inicialmente no modelo errado
+
+### Erro
+
+Ao aplicar a constraint de ordem única dos banners, o primeiro patch encontrou o primeiro bloco `Meta.constraints` semelhante do arquivo e inseriu temporariamente a regra em `ImportedProduct`, que nem possui `display_order`.
+
+### Correção e prevenção
+
+O diff foi revisado antes de migrations ou testes, a inserção incorreta foi removida e a constraint foi colocada no `Meta` de `Banner`. Em arquivos com vários blocos estruturalmente semelhantes, patches de modelo devem incluir a declaração da classe como contexto e o diff deve ser conferido antes de qualquer comando que altere o banco.

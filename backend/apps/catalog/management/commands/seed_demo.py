@@ -30,6 +30,13 @@ BANNER_CATEGORIES = ("beauty", "fragrances", "womens-dresses")
 class Command(BaseCommand):
     help = "Prepara uma vitrine feminina com todos os produtos compatíveis importados."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--skip-admin",
+            action="store_true",
+            help="Preserva integralmente os usuários Django existentes.",
+        )
+
     @transaction.atomic
     def handle(self, *args, **options):
         imported_products = list(
@@ -94,6 +101,9 @@ class Command(BaseCommand):
                     "promotional_price": generated_promotion,
                     "stock_quantity": product.source_stock,
                     "active": True,
+                    "free_shipping": (
+                        generated_promotion or generated_price
+                    ) >= settings.FREE_SHIPPING_MINIMUM,
                 },
             )
             if created and generated_promotion is not None:
@@ -167,7 +177,11 @@ class Command(BaseCommand):
             )
             created_banners += int(created)
 
-        admin_status = self._ensure_demo_admin()
+        admin_status = (
+            "preservado"
+            if options["skip_admin"]
+            else self._ensure_demo_admin()
+        )
 
         self.stdout.write(
             self.style.SUCCESS(

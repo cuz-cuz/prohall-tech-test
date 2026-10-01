@@ -1,5 +1,5 @@
-const configuredBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api'
+const defaultBaseUrl = import.meta.env.DEV ? 'http://localhost:8000/api' : '/api'
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultBaseUrl
 
 export const API_BASE_URL = configuredBaseUrl.replace(/\/$/, '')
 
@@ -235,6 +235,32 @@ export function updateAdminBanner(id, payload, options = {}) {
   return requestJson(`/admin/banners/${id}/`, { ...options, method: 'PATCH', body: payload })
 }
 
+export async function uploadAdminImage(file, { signal } = {}) {
+  const body = new FormData()
+  body.append('image', file)
+  const response = await fetch(`${API_BASE_URL}/admin/media/images/`, {
+    signal,
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-CSRFToken': await ensureCsrfToken(signal) },
+    body,
+  })
+
+  if (!response.ok) {
+    let data = null
+    try {
+      data = await response.json()
+    } catch {
+      // Respostas sem JSON recebem a mensagem segura abaixo.
+    }
+    throw new ApiError(
+      data?.message ?? 'Não foi possível enviar a imagem.',
+      { status: response.status, data },
+    )
+  }
+  return response.json()
+}
+
 export function runAdminProductImport(options = {}) {
   return requestJson('/admin/products/import/', { ...options, method: 'POST', body: {} })
 }
@@ -245,4 +271,16 @@ export function getAdminStoreSettings(options) {
 
 export function updateAdminStoreSettings(payload, options = {}) {
   return requestJson('/admin/settings/', { ...options, method: 'PATCH', body: payload })
+}
+
+export function getAdminDemoReset(options) {
+  return requestJson('/admin/settings/demo-reset/', options)
+}
+
+export function restoreAdminDemo(confirmation, options = {}) {
+  return requestJson('/admin/settings/demo-reset/', {
+    ...options,
+    method: 'POST',
+    body: { confirmation },
+  })
 }

@@ -6,7 +6,7 @@ import App from '../App'
 
 const staffSession = {
   authenticated: true,
-  user: { username: 'admin', display_name: 'Ana Gestora' },
+  user: { username: 'admin', display_name: 'Ana Gestora', is_superuser: true },
   csrf_token: 'admin-csrf-token',
 }
 
@@ -136,9 +136,16 @@ function mockAdminApi(session = staffSession) {
     }
     if (url.includes('/admin/dashboard/')) return jsonResponse(dashboardPayload)
     if (url.includes('/admin/products/import/')) return jsonResponse({ created: 3, updated: 97, total: 100, completed_at: '2026-10-01T12:00:00Z' })
+    if (url.includes('/admin/settings/demo-reset/')) {
+      if (options.method === 'POST') return jsonResponse({ products_imported: 46, listings_created: 45, completed_at: '2026-10-01T14:00:00Z' })
+      return jsonResponse({ enabled: true, running: false, can_reset: true, confirmation_phrase: 'RESTAURAR DEMONSTRAÇÃO', cooldown_seconds: 600, retry_after: 0, last_reset_at: null, last_reset_by: '', last_summary: {} })
+    }
     if (url.includes('/admin/settings/')) {
       if (options.method === 'PATCH') return jsonResponse({ free_shipping_minimum: JSON.parse(options.body).free_shipping_minimum, updated_at: '2026-10-01T13:00:00Z' })
       return jsonResponse({ free_shipping_minimum: '199.00', updated_at: '2026-10-01T12:00:00Z' })
+    }
+    if (url.includes('/admin/media/images/')) {
+      return jsonResponse({ url: 'https://media.example.com/banners/banner.webp', width: 1600, height: 500 }, 201)
     }
     if (url.includes('/admin/listings/')) {
       if (options.method === 'POST') return jsonResponse({ ...listingsPayload.results[0], id: 3 }, 201)
@@ -417,6 +424,28 @@ describe('Mosaico Admin', () => {
     expect(await within(editor).findByText(/a imagem não carregou/i)).toBeInTheDocument()
   })
 
+  it('uploads a banner image and fills its public URL', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/banners']}><App /></MemoryRouter>)
+
+    await screen.findByRole('table', { name: /lista de banners/i })
+    fireEvent.click(screen.getByRole('button', { name: /novo banner/i }))
+    const editor = await screen.findByRole('dialog', { name: /novo banner/i })
+    const file = new File(['imagem'], 'banner.webp', { type: 'image/webp' })
+
+    fireEvent.change(within(editor).getByLabelText(/enviar imagem do computador/i), {
+      target: { files: [file] },
+    })
+
+    expect(await within(editor).findByText(/imagem enviada e pronta/i)).toBeInTheDocument()
+    expect(within(editor).getByLabelText(/url da imagem/i)).toHaveValue(
+      'https://media.example.com/banners/banner.webp',
+    )
+    const uploadCall = fetch.mock.calls.find(([url]) => url.includes('/admin/media/images/'))
+    expect(uploadCall[1].body).toBeInstanceOf(FormData)
+    expect(uploadCall[1].headers).toEqual({ 'X-CSRFToken': 'admin-csrf-token' })
+  })
+
   it('edits the free shipping minimum from the settings page', async () => {
     mockAdminApi()
     render(<MemoryRouter initialEntries={['/admin/configuracoes']}><App /></MemoryRouter>)
@@ -431,6 +460,26 @@ describe('Mosaico Admin', () => {
     const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/settings/') && options?.method === 'PATCH')
     expect(call[1].headers['X-CSRFToken']).toBe('admin-csrf-token')
     expect(JSON.parse(call[1].body)).toEqual({ free_shipping_minimum: '250.00' })
+  })
+
+  it('requires the confirmation phrase before restoring the demo store', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/configuracoes']}><App /></MemoryRouter>)
+
+    fireEvent.click(await screen.findByRole('button', { name: /restaurar demonstração/i }))
+    const dialog = screen.getByRole('dialog', { name: /restaurar demonstração/i })
+    expect(within(dialog).getByText(/esta ação não pode ser desfeita/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/seu acesso administrativo será preservado/i)).toBeInTheDocument()
+    const submit = within(dialog).getByRole('button', { name: /sim, restaurar demonstração/i })
+    expect(submit).toBeDisabled()
+
+    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'RESTAURAR DEMONSTRAÇÃO' } })
+    fireEvent.click(submit)
+
+    await screen.findByText(/46 produtos e 45 anúncios preparados/i)
+    const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/settings/demo-reset/') && options?.method === 'POST')
+    expect(call[1].headers['X-CSRFToken']).toBe('admin-csrf-token')
+    expect(JSON.parse(call[1].body)).toEqual({ confirmation: 'RESTAURAR DEMONSTRAÇÃO' })
   })
 
   it('round-trips the per-listing free shipping flag', async () => {

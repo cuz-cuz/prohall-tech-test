@@ -1323,6 +1323,7 @@ Tarefas:
 - revisar permissões por endpoint e impedir edição de campos somente leitura;
 - testar alterações do painel refletindo na loja;
 - testar erros de concorrência e validação durante edições;
+- permitir que um superusuário restaure com segurança o ambiente de demonstração, sem apagar usuários administrativos e sem limpar dados antes de validar a fonte externa;
 - executar o fluxo administrativo completo em celular e desktop;
 - ajustar textos, hierarquia visual e atritos encontrados pelo responsável;
 - atualizar checklist, documentação técnica e `/vault`.
@@ -1330,6 +1331,8 @@ Tarefas:
 Critério de conclusão: o responsável aprova o painel e todas as operações obrigatórias funcionam com segurança no celular e desktop.
 
 Modelo recomendado: **GPT-5.6 Sol — High**.
+
+Status em 1º de outubro de 2026: **concluída por decisão do responsável**. A revisão acrescentou restauração controlada da demonstração, reforçou permissões, concorrência e validações, refinou a interface de configurações e ampliou as suítes. Permanece registrada como pendência visual não bloqueante a forma de encaixe da prévia de imagem no editor de banners.
 
 ### Fase 14 — Deploy
 
@@ -1346,6 +1349,8 @@ Tarefas:
 Critério de conclusão: avaliador consegue usar loja e painel administrativo pelas URLs publicadas.
 
 Modelo recomendado: **GPT-5.6 Sol — High**.
+
+Status em 1º de outubro de 2026: **em andamento**. O repositório recebeu preparação para Railway e Vercel, incluindo Gunicorn na porta dinâmica, coleta de estáticos, proxy de primeira parte para `/api`, fallback da SPA, cabeçalhos de segurança, variáveis de cookie configuráveis e roteiro operacional. O painel também envia imagens de banner para Cloudflare R2 pelo backend, com validação de conteúdo, tamanho e dimensões, sem expor chaves ao navegador. A criação dos serviços, bucket, secrets, domínios públicos, seed remoto e smoke test dependem da autenticação nas plataformas.
 
 ### Fase 15 — Documentação e entrega
 
@@ -1545,9 +1550,9 @@ O projeto estará pronto quando o avaliador conseguir, usando apenas o README:
 
 ## 33. Próximo passo imediato
 
-Executar a **Fase 13 — Qualidade e aprovação do painel** antes do deploy. A auditoria completa dos requisitos e das pendências de entrega está em `docs/auditoria_requisitos.md`.
+Concluir a **Fase 14 — Deploy** autenticando Railway e Vercel, criando os serviços, cadastrando secrets, executando os seeds e realizando o smoke test público. A auditoria completa dos requisitos e das pendências de entrega está em `docs/auditoria_requisitos.md`.
 
-Configuração recomendada para a Fase 13: **GPT-5.6 Sol — High**.
+Configuração recomendada para a Fase 14: **GPT-5.6 Sol — High**.
 
 ---
 

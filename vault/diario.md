@@ -839,3 +839,110 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - as 45 somas de parcelas dos anúncios ativos conferidas contra os dados reais;
 - ida e volta do agendamento conferida em Node, inclusive na meia-noite;
 - lint e build de produção aprovados.
+
+## 1º de outubro de 2026 — Sincronização e revisão após trabalho no Claude
+
+### Revisado
+
+- `main` atualizada por fast-forward de `530e579` para `63f9036`, trazendo sete commits já publicados no GitHub;
+- mudanças das Fases 11 e 12 revisadas contra o plano, incluindo painel administrativo, snapshot do nome do comprador, importação por nicho, configuração de frete grátis e correções de parcelamento e fuso;
+- permissões staff, CSRF, serializers, migrations, importação e cálculos monetários conferidos estaticamente;
+- árvore permaneceu sem conflitos e `git diff --check` passou.
+
+### Validação nesta sessão
+
+- 48 testes frontend aprovados;
+- lint e build de produção aprovados;
+- `manage.py check` e `makemigrations --check --dry-run` aprovados;
+- a suíte backend encontrou 99 testes, mas não iniciou em PostgreSQL porque a senha local do usuário `mosaico` foi recusada e o Docker Desktop estava parado;
+- como verificação complementar, os 99 testes foram executados em SQLite: 97 passaram e os dois restantes falharam em comportamentos específicos do banco (aritmética da constraint decimal e concorrência com tabela bloqueada), sem substituir a validação PostgreSQL registrada anteriormente.
+
+### Próximo
+
+- executar a Fase 13 com GPT-5.6 Sol — High;
+- repetir os 99 testes no PostgreSQL quando a credencial local ou o Docker estiver disponível;
+- concluir a inspeção visual/manual do painel e remover da auditoria a pendência já obsoleta de publicar as alterações locais.
+
+## 1º de outubro de 2026 — Restauração controlada da demonstração
+
+### Entregue
+
+- Configurações do painel ganhou a ação **Restaurar demonstração**, visível somente para superusuários;
+- confirmação exige a frase `RESTAURAR DEMONSTRAÇÃO` e o backend valida o mesmo valor;
+- o DummyJSON é baixado e normalizado por completo antes de iniciar qualquer exclusão;
+- pedidos, clientes, códigos de acesso, anúncios, menus, banners e produtos importados são reconstruídos em uma única transação;
+- usuários Django, incluindo o administrador que iniciou a operação, são preservados;
+- mínimo de frete grátis retorna ao valor inicial do ambiente e a vitrine é recriada pelo `seed_demo` sem alterar a senha administrativa;
+- lease persistida no PostgreSQL impede restaurações simultâneas e cooldown configurável limita repetições;
+- tabelas funcionais recebem bloqueio exclusivo durante a reconstrução para impedir checkout ou edição administrativa intercalados;
+- horário, usuário e resumo da última execução ficam registrados sem dados sensíveis;
+- o carrinho local do navegador que conclui a operação é limpo para não manter identificadores antigos;
+- recurso controlado por `DEMO_RESET_ENABLED`, falso por padrão, e `DEMO_RESET_COOLDOWN_SECONDS`;
+- decisão e uso documentados no README, plano, auditoria e `vault/decisoes`.
+
+### Validação
+
+- 103 testes backend aprovados no PostgreSQL antes do teste adicional de conflito;
+- 49 testes focados de catálogo e backoffice aprovados;
+- 22 testes do backoffice aprovados novamente após o bloqueio exclusivo das tabelas funcionais;
+- 49 testes frontend aprovados;
+- lint frontend sem avisos e build de produção aprovado;
+- `manage.py check` e `makemigrations --check --dry-run` aprovados;
+- migration `core.0002_demoresetstate` aplicada no banco Docker de desenvolvimento;
+- healthcheck da API e rota `/admin` responderam HTTP 200;
+- restauração real não foi executada, preservando os dados atuais até confirmação explícita no painel.
+- usuário local `admin` confirmado como ativo, staff e superusuário; a senha foi definida diretamente no banco e não foi registrada no repositório.
+- corrigida a seção que permanecia oculta por depender de `is_superuser` preservado no estado antigo do Hot Reload; a tela agora consulta diretamente o endpoint e deixa a autorização exclusivamente no backend;
+- após a correção, 49 testes frontend e lint passaram, e o serviço frontend foi reiniciado.
+
+### Refinamento visual da restauração
+
+- cartão da restauração reorganizado com ícone, hierarquia de título, garantias, histórico, disponibilidade e ação lateral;
+- cor destrutiva reservada ao botão e ao aviso, mantendo o restante alinhado ao roxo, superfícies e elevação discreta do painel;
+- modal ampliado e estruturado com aviso de irreversibilidade, sequência de validação/limpeza/recriação, confirmação do acesso preservado e área própria para a frase de segurança;
+- ações do modal reorganizadas e adaptadas para largura integral no celular;
+- adicionados ícones de restauração e proteção ao conjunto existente;
+- 49 testes frontend, lint e build de produção aprovados após o redesenho;
+- conferência visual automatizada indisponível porque nenhum navegador estava conectado à sessão; servidor permaneceu disponível para aceite manual.
+
+### Prévia e ordem dos banners
+
+- a prévia do banner no modal passou a ter largura controlada, alinhamento central do bloco e da legenda e ponto focal explícito no centro da imagem;
+- a ordem de exibição agora é única entre banners, validada pela API e garantida por constraint no PostgreSQL;
+- conflitos de ordem são exibidos junto ao respectivo campo com mensagem em português;
+- a migration `catalog.0005_unique_banner_display_order` preserva a primeira ocorrência de cada ordem preexistente e realoca somente eventuais duplicatas antes de criar a constraint;
+- migration aplicada no banco Docker de desenvolvimento e frontend reiniciado;
+- 74 testes de backoffice, storefront e catálogo, 49 testes frontend, lint, build e `makemigrations --check --dry-run` aprovados.
+- após o aceite inicial, a prévia administrativa passou de recorte para encaixe completo (`object-fit: contain`), preservando toda a imagem dentro do retângulo reservado sem alterar o banner da loja.
+- o responsável informou que o encaixe ainda não correspondia ao esperado e decidiu seguir para a Fase 14, mantendo o ponto como pendência visual não bloqueante.
+
+## 1º de outubro de 2026 — Início da Fase 14 e Cloudflare R2
+
+### Preparação de deploy
+
+- backend passou a coletar estáticos na imagem Docker e a iniciar Gunicorn na porta dinâmica fornecida pelo Railway;
+- frontend de produção usa `/api`, com proxy externo configurado pela Vercel para manter sessão e CSRF como primeira parte;
+- fallback da SPA e cabeçalhos HTTP defensivos foram adicionados à configuração da Vercel;
+- cookies `SameSite` tornaram-se configuráveis, preservando `Lax` como padrão seguro do fluxo por proxy;
+- roteiro de Railway, PostgreSQL, Vercel, SMTP, secrets, seeds e smoke test criado em `docs/deploy.md`;
+- CLIs oficiais do Railway e da Vercel instaladas; ambas ainda exigem autenticação do responsável.
+
+### Mídias no R2
+
+- painel de banners ganhou upload JPEG, PNG e WebP, mantendo URL manual como alternativa;
+- backend valida arquivo real, tamanho máximo de 8 MB e até 40 milhões de pixels antes do envio;
+- upload usa a API S3 compatível do R2 pelo backend, mantendo chaves fora do navegador;
+- objetos recebem chave aleatória e imutável sob `banners/AAAA/MM/`, MIME verificado e cache público de um ano;
+- endpoint exige sessão staff e CSRF; erros de configuração e transporte retornam mensagens seguras;
+- bucket exclusivo `mosaico-media` criado na conta Cloudflare autenticada;
+- os buckets existentes não usam domínio próprio; um deles usa `r2.dev`, que a documentação da Cloudflare classifica como acesso de desenvolvimento;
+- vínculo do domínio público e token S3 do R2 ainda dependem da escolha do responsável e não foram armazenados no repositório.
+
+### Validação
+
+- imagem Docker do backend construída com coleta de 154 arquivos estáticos e 444 pós-processados;
+- configuração Vercel e build de produção validados sem referência a `localhost:8000`;
+- `check --deploy` passou com variáveis equivalentes às de produção;
+- 104 testes backend e 50 testes frontend aprovados;
+- lint, build frontend e `makemigrations --check --dry-run` aprovados;
+- nenhum upload real foi executado porque o token S3 e a URL pública definitiva do R2 ainda não foram definidos.

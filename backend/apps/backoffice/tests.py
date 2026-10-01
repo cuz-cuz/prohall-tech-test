@@ -1,20 +1,25 @@
 import uuid
+from io import BytesIO
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.reverse import reverse
 from rest_framework.test import APIClient, APITestCase
+from PIL import Image
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu
 from apps.catalog.services.dummyjson import DummyJSONTransportError
-from apps.catalog.services.importer import ImportSummary
+from apps.catalog.services.importer import ImportSummary, PreparedImport
 from apps.core.models import StoreSettings
 from apps.customers.models import Customer, CustomerAccessCode
 from apps.orders.models import Order, OrderItem
+from apps.backoffice.media import StoredImage
 
 
 class BackofficeFixtures:
@@ -147,7 +152,7 @@ class BackofficeAPITests(BackofficeFixtures, APITestCase):
         self.assertTrue(staff.data["authenticated"])
         self.assertEqual(
             staff.data["user"],
-            {"username": "gestora", "display_name": "Ana"},
+            {"username": "gestora", "display_name": "Ana", "is_superuser": False},
         )
         self.assertNotIn("password", staff.data)
 
@@ -392,6 +397,83 @@ class BackofficeAPITests(BackofficeFixtures, APITestCase):
         self.assertEqual(deactivated.status_code, status.HTTP_200_OK)
         self.assertFalse(deactivated.data["active"])
 
+        duplicate_order_payload = valid_payload.copy()
+        duplicate_order_payload["title"] = "Outro banner"
+        duplicate_order = client.post(
+            reverse("backoffice:banners"),
+            duplicate_order_payload,
+            format="json",
+        )
+        self.assertEqual(duplicate_order.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            duplicate_order.data["display_order"],
+            ["Esta ordem já está sendo usada por outro banner."],
+        )
+
+        same_order_on_own_update = client.patch(
+            reverse("backoffice:banner-detail", args=(banner.id,)),
+            {"title": "Semana da beleza atualizada", "display_order": 0},
+            format="json",
+        )
+        self.assertEqual(same_order_on_own_update.status_code, status.HTTP_200_OK)
+
+    @staticmethod
+    def banner_upload():
+        content = BytesIO()
+        Image.new("RGB", (1600, 500), color="#6d4aff").save(content, format="WEBP")
+        return SimpleUploadedFile(
+            "banner.webp",
+            content.getvalue(),
+            content_type="image/webp",
+        )
+
+    @patch("apps.backoffice.views.upload_image")
+    def test_staff_can_upload_valid_banner_image_without_exposing_r2_credentials(self, upload_mock):
+        upload_mock.return_value = StoredImage(
+            url="https://media.example.com/banners/2026/10/banner.webp",
+            width=1600,
+            height=500,
+        )
+        url = reverse("backoffice:image-upload")
+
+        anonymous = self.client.post(
+            url,
+            {"image": self.banner_upload()},
+            format="multipart",
+        )
+        self.assertEqual(anonymous.status_code, status.HTTP_403_FORBIDDEN)
+
+        invalid = self.authenticated_client().post(
+            url,
+            {
+                "image": SimpleUploadedFile(
+                    "banner.svg",
+                    b"<svg xmlns='http://www.w3.org/2000/svg'></svg>",
+                    content_type="image/svg+xml",
+                )
+            },
+            format="multipart",
+        )
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("image", invalid.data)
+
+        response = self.authenticated_client().post(
+            url,
+            {"image": self.banner_upload()},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data,
+            {
+                "url": "https://media.example.com/banners/2026/10/banner.webp",
+                "width": 1600,
+                "height": 500,
+            },
+        )
+        upload_mock.assert_called_once()
+
     @patch("apps.backoffice.views.sync_products")
     def test_product_import_returns_safe_summary(self, sync_mock):
         sync_mock.return_value = ImportSummary(created=3, updated=7)
@@ -486,6 +568,128 @@ class AdminStoreSettingsTests(BackofficeFixtures, APITestCase):
         self.assertEqual(updated.status_code, status.HTTP_200_OK)
         self.assertTrue(updated.data["free_shipping"])
         self.assertTrue(Listing.objects.get(pk=listing_id).free_shipping)
+
+    @override_settings(DEMO_RESET_ENABLED=False)
+    def test_demo_reset_is_available_only_to_superusers(self):
+        url = reverse("backoffice:demo-reset")
+        self.assertEqual(
+            self.authenticated_client().get(url).status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=("is_superuser",))
+        response = self.authenticated_client().get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["enabled"])
+        disabled = self.authenticated_client().post(
+            url,
+            {"confirmation": "RESTAURAR DEMONSTRAÇÃO"},
+            format="json",
+        )
+        self.assertEqual(disabled.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(DEMO_RESET_ENABLED=True, DEMO_RESET_COOLDOWN_SECONDS=0)
+    def test_demo_reset_rebuilds_business_data_and_preserves_admin_users(self):
+        _, _, _, old_order = self.create_commerce_data()
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=("is_superuser",))
+        prepared = PreparedImport(
+            products=(
+                {
+                    "external_id": 501,
+                    "title": "Perfume floral",
+                    "description": "Fragrância de demonstração",
+                    "category": "fragrances",
+                    "brand": "Mosaico",
+                    "sku": "PERF-501",
+                    "source_price": Decimal("149.90"),
+                    "source_discount_percentage": Decimal("10.00"),
+                    "source_stock": 8,
+                    "availability_status": "In Stock",
+                    "thumbnail_url": "https://example.com/perfume.jpg",
+                    "images": ["https://example.com/perfume.jpg"],
+                    "raw_payload": {"id": 501},
+                },
+            ),
+            skipped=0,
+            synced_at=timezone.now(),
+        )
+
+        with patch(
+            "apps.backoffice.demo_reset.prepare_products",
+            return_value=prepared,
+        ):
+            response = self.authenticated_client().post(
+                reverse("backoffice:demo-reset"),
+                {"confirmation": "RESTAURAR DEMONSTRAÇÃO"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Order.objects.filter(pk=old_order.pk).exists())
+        self.assertEqual(Customer.objects.count(), 0)
+        self.assertEqual(ImportedProduct.objects.count(), 1)
+        self.assertEqual(Listing.objects.count(), 1)
+        self.assertEqual(Menu.objects.count(), 8)
+        self.assertTrue(get_user_model().objects.filter(pk=self.staff.pk).exists())
+        self.assertEqual(response.data["products_imported"], 1)
+        self.assertEqual(response.data["listings_created"], 1)
+
+    @override_settings(DEMO_RESET_ENABLED=True, DEMO_RESET_COOLDOWN_SECONDS=0)
+    def test_demo_reset_keeps_data_when_the_source_fails(self):
+        _, _, _, order = self.create_commerce_data()
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=("is_superuser",))
+
+        with patch(
+            "apps.backoffice.demo_reset.prepare_products",
+            side_effect=DummyJSONTransportError("source unavailable"),
+        ):
+            response = self.authenticated_client().post(
+                reverse("backoffice:demo-reset"),
+                {"confirmation": "RESTAURAR DEMONSTRAÇÃO"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+        self.assertEqual(ImportedProduct.objects.count(), 1)
+
+    @override_settings(DEMO_RESET_ENABLED=True, DEMO_RESET_COOLDOWN_SECONDS=600)
+    def test_demo_reset_requires_exact_confirmation_and_honors_cooldown(self):
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=("is_superuser",))
+        client = self.authenticated_client()
+        url = reverse("backoffice:demo-reset")
+
+        invalid = client.post(url, {"confirmation": "restaurar"}, format="json")
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+
+        from apps.core.models import DemoResetState
+
+        DemoResetState.objects.filter(pk=1).update(
+            locked_until=timezone.now() + timezone.timedelta(minutes=1)
+        )
+        in_progress = client.post(
+            url,
+            {"confirmation": "RESTAURAR DEMONSTRAÇÃO"},
+            format="json",
+        )
+        self.assertEqual(in_progress.status_code, status.HTTP_409_CONFLICT)
+
+        DemoResetState.objects.filter(pk=1).update(
+            locked_until=None,
+            last_reset_at=timezone.now(),
+        )
+        limited = client.post(
+            url,
+            {"confirmation": "RESTAURAR DEMONSTRAÇÃO"},
+            format="json",
+        )
+        self.assertEqual(limited.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertGreater(limited.data["retry_after"], 0)
 
 
 class AdminProductNicheTests(BackofficeFixtures, APITestCase):

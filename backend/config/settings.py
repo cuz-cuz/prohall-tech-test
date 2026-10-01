@@ -1,6 +1,7 @@
 import os
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
@@ -158,10 +159,20 @@ if not DEBUG:
         )
 
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SECURE = not DEBUG
+
+valid_same_site_values = {"Lax", "Strict", "None"}
+if SESSION_COOKIE_SAMESITE not in valid_same_site_values:
+    raise ImproperlyConfigured(
+        "SESSION_COOKIE_SAMESITE must be Lax, Strict or None."
+    )
+if CSRF_COOKIE_SAMESITE not in valid_same_site_values:
+    raise ImproperlyConfigured(
+        "CSRF_COOKIE_SAMESITE must be Lax, Strict or None."
+    )
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
 SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
@@ -196,6 +207,44 @@ if MAX_INSTALLMENTS < 1:
 DEMO_ADMIN_USERNAME = os.getenv("DEMO_ADMIN_USERNAME", "admin")
 DEMO_ADMIN_EMAIL = os.getenv("DEMO_ADMIN_EMAIL", "admin@mosaico.local")
 DEMO_ADMIN_PASSWORD = os.getenv("DEMO_ADMIN_PASSWORD", "")
+DEMO_RESET_ENABLED = env_bool("DEMO_RESET_ENABLED", default=False)
+DEMO_RESET_COOLDOWN_SECONDS = int(os.getenv("DEMO_RESET_COOLDOWN_SECONDS", "600"))
+if DEMO_RESET_COOLDOWN_SECONDS < 0:
+    raise ImproperlyConfigured("DEMO_RESET_COOLDOWN_SECONDS cannot be negative.")
+
+R2_MEDIA_ENABLED = env_bool("R2_MEDIA_ENABLED", default=False)
+R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "").strip()
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "").strip()
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "").strip()
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", "").strip()
+R2_PUBLIC_BASE_URL = os.getenv("R2_PUBLIC_BASE_URL", "").strip().rstrip("/")
+R2_MAX_UPLOAD_BYTES = int(os.getenv("R2_MAX_UPLOAD_BYTES", str(8 * 1024 * 1024)))
+R2_MAX_IMAGE_PIXELS = int(os.getenv("R2_MAX_IMAGE_PIXELS", "40000000"))
+
+if R2_MAX_UPLOAD_BYTES < 1 or R2_MAX_IMAGE_PIXELS < 1:
+    raise ImproperlyConfigured("R2 upload limits must be positive integers.")
+if R2_MEDIA_ENABLED:
+    r2_required = {
+        "R2_ACCOUNT_ID": R2_ACCOUNT_ID,
+        "R2_ACCESS_KEY_ID": R2_ACCESS_KEY_ID,
+        "R2_SECRET_ACCESS_KEY": R2_SECRET_ACCESS_KEY,
+        "R2_BUCKET_NAME": R2_BUCKET_NAME,
+        "R2_PUBLIC_BASE_URL": R2_PUBLIC_BASE_URL,
+    }
+    missing_r2 = [name for name, value in r2_required.items() if not value]
+    if missing_r2:
+        raise ImproperlyConfigured(
+            f"Missing R2 media settings: {', '.join(missing_r2)}."
+        )
+    public_media_url = urlparse(R2_PUBLIC_BASE_URL)
+    valid_schemes = {"http", "https"} if DEBUG else {"https"}
+    if public_media_url.scheme not in valid_schemes or not public_media_url.netloc:
+        raise ImproperlyConfigured(
+            "R2_PUBLIC_BASE_URL must be a valid public HTTPS URL in production."
+        )
+    if public_media_url.path not in {"", "/"} or public_media_url.params or public_media_url.query or public_media_url.fragment:
+        raise ImproperlyConfigured("R2_PUBLIC_BASE_URL must not contain a path, query or fragment.")
+
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND", "django.core.mail.backends.locmem.EmailBackend"
 )

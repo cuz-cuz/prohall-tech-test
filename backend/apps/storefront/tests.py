@@ -174,6 +174,7 @@ class StorefrontAPITests(APITestCase):
         Banner.objects.create(
             title="Futuro",
             image_url="https://example.com/future.jpg",
+            display_order=1,
             active=True,
             starts_at=now + timedelta(days=1),
         )
@@ -485,6 +486,7 @@ class CatalogConstraintsTests(TestCase):
         Banner.objects.create(
             title="Expirado",
             image_url="https://example.com/expired.jpg",
+            display_order=1,
             active=True,
             ends_at=now - timedelta(minutes=1),
         )

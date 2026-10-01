@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: Fase 10 concluída e evolução da vitrine validada. Um painel administrativo React próprio foi planejado para as fases 11 a 13, antes do deploy e da entrega.
+> Estado atual: Fases 11 a 13 concluídas; a Fase 14 prepara e executa a publicação no Railway e na Vercel.
 
 ## Requisitos
 
@@ -38,7 +38,7 @@ Com o PostgreSQL configurado e as migrations aplicadas:
 .\.venv\Scripts\python.exe .\backend\manage.py import_products
 ```
 
-O comando lê somente as categorias do nicho feminino da loja, definidas em `backend/apps/catalog/niche.py`: `beauty`, `skin-care`, `fragrances`, `tops`, `womens-dresses`, `womens-bags`, `womens-shoes`, `sunglasses`, `womens-jewellery` e `womens-watches`. Cada categoria é lida em um endpoint paginado próprio e o comando pode ser executado novamente. Produtos existentes são atualizados pelo identificador externo, sem duplicação. Use `--all-categories` para importar o catálogo inteiro do DummyJSON e `--remover-fora-do-nicho` para apagar produtos fora do nicho que não tenham anúncio. O `seed_demo` seleciona os 45 itens do nicho feminino atualmente disponíveis nas categorias configuradas e cria anúncios separados; descontos da origem servem apenas para preparar promoções nos anúncios de demonstração e promoções personalizadas são preservadas.
+O comando lê somente as categorias do nicho feminino da loja, definidas em `backend/apps/catalog/niche.py`: `beauty`, `skin-care`, `fragrances`, `tops`, `womens-dresses`, `womens-bags`, `womens-shoes`, `sunglasses`, `womens-jewellery` e `womens-watches`. Cada categoria é lida em um endpoint paginado próprio e o comando pode ser executado novamente. Produtos existentes são atualizados pelo identificador externo, sem duplicação. Use `--all-categories` para importar o catálogo inteiro do DummyJSON e `--remover-fora-do-nicho` para apagar produtos fora do nicho que não tenham anúncio. O `seed_demo` seleciona os itens compatíveis atualmente disponíveis e cria anúncios separados; descontos da origem servem apenas para preparar promoções nos anúncios de demonstração e promoções personalizadas são preservadas.
 
 ### Vitrine e administrador de demonstração
 
@@ -56,7 +56,22 @@ DEMO_ADMIN_EMAIL=admin@mosaico.local
 DEMO_ADMIN_PASSWORD=escolha-uma-senha-local
 ```
 
-Nenhuma senha administrativa é versionada. Sem `DEMO_ADMIN_PASSWORD`, os dados da vitrine são criados e a criação do usuário é ignorada. O Admin fica em <http://localhost:8000/admin/>.
+Nenhuma senha administrativa é versionada. Sem `DEMO_ADMIN_PASSWORD`, os dados da vitrine são criados e a criação do usuário é ignorada. O painel administrativo React fica em <http://localhost:5173/admin>; o Django Admin em <http://localhost:8000/admin/> é apenas contingência.
+
+### Restaurar a demonstração
+
+Superusuários podem restaurar o cenário inicial em **Painel → Configurações → Restaurar demonstração**. A operação exige a frase `RESTAURAR DEMONSTRAÇÃO`, preserva usuários Django, valida todo o lote do DummyJSON antes de remover dados e recria produtos, anúncios, menus, banners e a configuração comercial dentro de uma transação. Pedidos, clientes e códigos de acesso anteriores são removidos.
+
+O recurso é desativado por padrão. Para habilitá-lo inclusive no ambiente de demonstração publicado, configure:
+
+```dotenv
+DEMO_RESET_ENABLED=True
+DEMO_RESET_COOLDOWN_SECONDS=600
+```
+
+A API exige um superusuário ativo, impede execuções concorrentes e aplica o intervalo configurado entre restaurações. Se o DummyJSON falhar ou retornar dados inválidos, nada é removido.
+
+No editor de banners, usuários staff também podem enviar uma imagem JPEG, PNG ou WebP diretamente para um bucket Cloudflare R2. O backend valida o arquivo e realiza o upload sem expor credenciais no navegador; a URL manual continua disponível como alternativa. A configuração do bucket, domínio público e variáveis está em [`docs/deploy.md`](docs/deploy.md).
 
 Endpoints públicos disponíveis:
 
@@ -108,9 +123,13 @@ A vitrine informa 10% de desconto no Pix, parcelamento em até 12 vezes e frete 
 
 O mínimo de frete grátis é editável em **Configurações** no painel administrativo e vale sobre o **subtotal do carrinho**: o carrinho mostra quanto falta para alcançá-lo. `FREE_SHIPPING_MINIMUM` apenas define o valor inicial, usado na primeira vez que a configuração é lida; depois disso o valor vive no banco e mudar não exige novo deploy. Cada anúncio também pode ser marcado com **frete grátis** no editor, mas isso é apenas um destaque do item na vitrine e não dispensa o mínimo do pedido. São condições de apresentação: o checkout atual continua sendo uma simulação por cartão e sempre confirma o preço e o estoque no servidor.
 
-O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). O carrinho persiste no navegador, mas o backend recalcula preços, atividade e estoque dentro da transação do checkout. Para deploy, configure frontend e API em subdomínios do mesmo domínio próprio e ajuste CORS, CSRF e HTTPS; a sessão usa cookies `SameSite=Lax`.
+O sistema visual está documentado em [`DESIGN.md`](DESIGN.md). O carrinho persiste no navegador, mas o backend recalcula preços, atividade e estoque dentro da transação do checkout. Na Vercel, o caminho `/api` funciona como proxy para o Railway, mantendo a sessão `SameSite=Lax` como cookie de primeira parte mesmo sem domínio próprio.
 
 Em produção, use `DEBUG=False` e informe explicitamente `SECRET_KEY`, `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` e `CSRF_TRUSTED_ORIGINS`. As origens CORS e CSRF devem usar HTTPS; o backend força HTTPS e usa cookies `Secure`. Quando o domínio estiver definitivo, configure também `SECURE_HSTS_SECONDS`, `SECURE_HSTS_INCLUDE_SUBDOMAINS` e `SECURE_HSTS_PRELOAD` conforme a política do domínio. A inicialização falha se hosts, origens ou provedor de e-mail de produção estiverem ausentes.
+
+## Deploy
+
+O roteiro completo de Railway, PostgreSQL, Vercel, SMTP, seeds e smoke test está em [`docs/deploy.md`](docs/deploy.md). Nenhuma credencial de produção pertence ao repositório.
 
 ## Execução com Docker
 
@@ -123,7 +142,7 @@ O Compose foi validado no Docker Desktop com WSL 2. Ele inicia PostgreSQL 18, ap
 ## Testes e verificações
 
 ```powershell
-.\.venv\Scripts\python.exe .\backend\manage.py test apps.core apps.catalog apps.storefront apps.customers apps.orders
+.\.venv\Scripts\python.exe .\backend\manage.py test apps.core apps.catalog apps.storefront apps.customers apps.orders apps.backoffice
 Set-Location .\frontend
 npm test
 npm run lint

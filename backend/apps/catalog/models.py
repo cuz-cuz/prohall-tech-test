@@ -220,6 +220,10 @@ class Banner(models.Model):
     class Meta:
         ordering = ("display_order", "id")
         constraints = [
+            models.UniqueConstraint(
+                fields=("display_order",),
+                name="catalog_unique_banner_display_order",
+            ),
             models.CheckConstraint(
                 condition=(
                     Q(starts_at__isnull=True)

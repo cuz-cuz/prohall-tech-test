@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 from django.utils.text import slugify
 from rest_framework import serializers
@@ -10,6 +11,8 @@ from apps.core.models import StoreSettings
 from apps.customers.models import Customer
 from apps.orders.models import Order
 from apps.orders.serializers import StrictSerializer
+
+from .media import inspect_image
 
 
 class RejectUnknownFieldsMixin:
@@ -49,6 +52,36 @@ class AdminLoginSerializer(StrictSerializer):
         write_only=True,
         style={"input_type": "password"},
     )
+
+
+class AdminDemoResetSerializer(StrictSerializer):
+    confirmation = serializers.CharField(
+        max_length=32,
+        trim_whitespace=True,
+    )
+
+    def validate_confirmation(self, value):
+        if value != "RESTAURAR DEMONSTRAÇÃO":
+            raise serializers.ValidationError(
+                "Digite RESTAURAR DEMONSTRAÇÃO para confirmar."
+            )
+        return value
+
+
+class AdminImageUploadSerializer(RejectUnknownFieldsMixin, serializers.Serializer):
+    image = serializers.ImageField(allow_empty_file=False, write_only=True)
+
+    def validate_image(self, value):
+        if value.size > settings.R2_MAX_UPLOAD_BYTES:
+            max_megabytes = settings.R2_MAX_UPLOAD_BYTES / (1024 * 1024)
+            raise serializers.ValidationError(
+                f"A imagem deve ter no máximo {max_megabytes:g} MB."
+            )
+        try:
+            inspect_image(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        return value
 
 
 class AdminImportedProductSerializer(serializers.ModelSerializer):
@@ -232,11 +265,20 @@ class AdminMenuSerializer(RejectUnknownFieldsMixin, serializers.ModelSerializer)
 
 
 class AdminBannerSerializer(RejectUnknownFieldsMixin, serializers.ModelSerializer):
+    display_order = serializers.IntegerField(min_value=0)
+
     class Meta:
         model = Banner
         fields = ("id", "title", "image_url", "link_url", "alt_text", "display_order", "active", "starts_at", "ends_at", "created_at", "updated_at")
         read_only_fields = ("created_at", "updated_at")
-        extra_kwargs = {"display_order": {"min_value": 0}}
+
+    def validate_display_order(self, value):
+        banners = Banner.objects.filter(display_order=value)
+        if self.instance is not None:
+            banners = banners.exclude(pk=self.instance.pk)
+        if banners.exists():
+            raise serializers.ValidationError("Esta ordem já está sendo usada por outro banner.")
+        return value
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

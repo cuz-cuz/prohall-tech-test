@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 
 import { useApiResource } from '../hooks/useApiResource'
-import { createAdminBanner, getAdminBanners, updateAdminBanner } from '../services/api'
+import { createAdminBanner, getAdminBanners, updateAdminBanner, uploadAdminImage } from '../services/api'
 import { AdminFeedback, FieldError } from './AdminFeedback'
 import { apiFieldErrors, firstApiError, toApiDateTime, toLocalDateTime } from './adminForms'
 import { formatAdminDateTime } from './adminFormatters'
@@ -24,6 +24,8 @@ export function AdminBannersPage() {
   const [errors, setErrors] = useState({})
   const [feedback, setFeedback] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadComplete, setUploadComplete] = useState(false)
   const [confirming, setConfirming] = useState(null)
   const [toggling, setToggling] = useState(false)
   const banners = useApiResource(useCallback((options) => getAdminBanners({ ...applied, page }, options), [applied, page]))
@@ -32,7 +34,31 @@ export function AdminBannersPage() {
     setEditor(banner ?? 'new')
     setForm(banner ? { ...banner, starts_at: toLocalDateTime(banner.starts_at), ends_at: toLocalDateTime(banner.ends_at) } : emptyBanner)
     setErrors({})
+    setUploadComplete(false)
     setFeedback(null)
+  }
+
+  async function uploadImage(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setUploadComplete(false)
+    setErrors((current) => ({ ...current, image: undefined }))
+    try {
+      const result = await uploadAdminImage(file)
+      setForm((current) => ({ ...current, image_url: result.url }))
+      setUploadComplete(true)
+    } catch (error) {
+      const fieldErrors = apiFieldErrors(error)
+      setErrors((current) => ({
+        ...current,
+        ...fieldErrors,
+        image: fieldErrors.image ?? firstApiError(error),
+      }))
+    } finally {
+      setUploading(false)
+    }
   }
 
   async function save(event) {
@@ -71,9 +97,19 @@ export function AdminBannersPage() {
     <AdminFeedback tone={feedback?.tone} onDismiss={() => setFeedback(null)}>{feedback?.message}</AdminFeedback>
     <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}><label><span>Buscar</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Título, texto alternativo ou link" /></label><AdminSelect label="Status" value={filters.active} options={statusOptions} onChange={(value) => setFilters({ ...filters, active: value })} /><button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button></form>
     {editor ? <AdminModal title={editor === 'new' ? 'Novo banner' : `Editar ${editor.title}`} description="Horários são exibidos no fuso de São Paulo e persistidos em UTC." onClose={() => setEditor(null)}><form className="admin-form-grid" onSubmit={save}>
-      <label className="admin-field"><span>Título interno</span><input required maxLength="160" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><FieldError errors={errors} name="title" /></label><label className="admin-field"><span>Ordem</span><input type="number" min="0" step="1" value={form.display_order} onChange={(event) => setForm({ ...form, display_order: event.target.value })} /></label>
+      <label className="admin-field"><span>Título interno</span><input required maxLength="160" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><FieldError errors={errors} name="title" /></label><label className="admin-field"><span>Ordem</span><input type="number" min="0" step="1" value={form.display_order} onChange={(event) => setForm({ ...form, display_order: event.target.value })} /><FieldError errors={errors} name="display_order" /></label>
       <label className="admin-field admin-field--wide"><span>URL da imagem</span><input required type="url" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><FieldError errors={errors} name="image_url" /></label>
-      <div className="admin-field--wide"><span className="admin-preview-label">Prévia do banner</span><AdminImagePreview src={form.image_url} alt={form.alt_text} ratio="wide" /></div>
+      <div className="admin-media-upload admin-field--wide">
+        <label className={`admin-button admin-button--secondary${uploading ? ' is-disabled' : ''}`}>
+          <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={uploadImage} />
+          <AdminIcon name="upload" />
+          {uploading ? 'Enviando imagem…' : 'Enviar imagem do computador'}
+        </label>
+        <small>JPEG, PNG ou WebP de até 8 MB. O envio preenche a URL automaticamente.</small>
+        {uploadComplete ? <span className="admin-media-upload__success" role="status">Imagem enviada e pronta para usar.</span> : null}
+        <FieldError errors={errors} name="image" />
+      </div>
+      <div className="admin-banner-preview admin-field--wide"><span className="admin-preview-label">Prévia do banner</span><AdminImagePreview src={form.image_url} alt={form.alt_text} ratio="wide" /></div>
       <label className="admin-field"><span>Link de destino</span><input placeholder="/produtos ou https://…" value={form.link_url} onChange={(event) => setForm({ ...form, link_url: event.target.value })} /><FieldError errors={errors} name="link_url" /></label><label className="admin-field"><span>Texto alternativo</span><input maxLength="255" value={form.alt_text} onChange={(event) => setForm({ ...form, alt_text: event.target.value })} /></label>
       <label className="admin-field"><span>Início (opcional)</span><input type="datetime-local" value={form.starts_at} onChange={(event) => setForm({ ...form, starts_at: event.target.value })} /></label><label className="admin-field"><span>Fim (opcional)</span><input type="datetime-local" value={form.ends_at} onChange={(event) => setForm({ ...form, ends_at: event.target.value })} /><FieldError errors={errors} name="ends_at" /></label>
       <label className="admin-check admin-field--wide"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /><span>Banner ativo</span></label>

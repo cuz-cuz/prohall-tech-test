@@ -10,9 +10,9 @@ Legenda:
 
 ## Resultado executivo
 
-O núcleo da loja está funcional: importação idempotente, catálogo, busca, carrinho persistente, checkout transacional, pagamento simulado, conta automática e histórico de pedidos. O painel React possui autenticação staff, dashboard, consultas e operação comercial de anúncios, menus, banners e importação. A Fase 13 ainda deve executar a aprovação manual completa de acessibilidade, responsividade, integração painel–loja e concorrência.
+O núcleo da loja está funcional: importação idempotente, catálogo, busca, carrinho persistente, checkout transacional, pagamento simulado, conta automática e histórico de pedidos. O painel React possui autenticação staff, dashboard, consultas e operação comercial de anúncios, menus, banners e importação. O responsável encerrou a Fase 13 e avançou para a preparação do deploy, mantendo o encaixe visual da prévia do banner como pendência não bloqueante.
 
-A entrega ainda não está pronta. As pendências prioritárias são a aprovação de qualidade do painel, o setup completo em um comando com credencial administrativa de teste, a documentação final do README e a publicação das alterações locais no Git. O deploy continua pendente como diferencial planejado.
+A entrega ainda não está pronta. O código está sendo preparado para Railway e Vercel, mas faltam autenticação nas plataformas, serviços públicos, SMTP, seeds remotos, URLs e smoke test. As alterações locais também ainda precisam ser revisadas e publicadas no Git.
 
 ## Matriz de conformidade
 
@@ -26,7 +26,7 @@ A entrega ainda não está pronta. As pendências prioritárias são a aprovaç�
 | Produtos importados no ADMIN | Concluído | A listagem somente leitura, pesquisável, filtrável e paginada está disponível no painel React. |
 | Anúncios no ADMIN | Concluído | O painel React cria, edita, ativa e desativa anúncios, com validações de preço, promoção e estoque vinculadas aos campos. |
 | Menus no ADMIN | Concluído | Nome, ordem, status e associação ordenada de anúncios são administráveis no painel React. |
-| Banners no ADMIN | Concluído | Imagem por URL, link, texto alternativo, ordem, status e período são administráveis no painel React. |
+| Banners no ADMIN | Concluído | Imagem por URL ou upload protegido ao Cloudflare R2, link, texto alternativo, ordem única, status e período são administráveis no painel React. |
 | Pedidos no ADMIN | Concluído | Pedidos são consultáveis como dados somente leitura no painel React e no Django Admin; snapshots detalhados permanecem preservados no banco. |
 | Importação pelo painel | Concluído | A reimportação idempotente pode ser confirmada e executada no painel, que exibe novos, atualizados, total e horário de conclusão. |
 | Home, menus e banners | Concluído | A Home consome a configuração persistida no backend e possui navegação de banners por gesto e setas. |
@@ -42,9 +42,9 @@ A entrega ainda não está pronta. As pendências prioritárias são a aprovaç�
 | Estoque e concorrência | Concluído | Checkout usa transação e `select_for_update`; teste PostgreSQL cobre disputa pela última unidade. |
 | Snapshots de pedido | Concluído | `OrderItem` guarda título, SKU, preço, quantidade, subtotal e imagem da compra. |
 | Estados de interface | Concluído no código | Existem estados de carregamento, vazio, erro, indisponibilidade e conflito de checkout. |
-| Responsividade mobile | Parcial | O CSS é mobile-first e possui testes de comportamento, mas a rodada manual completa em celular, teclado e leitores de tela ainda precisa ser registrada e aprovada. |
+| Responsividade mobile | Parcial | O CSS é mobile-first e possui testes de comportamento; o responsável avançou de fase, mantendo como pendência visual não bloqueante a prévia do banner. |
 | Migrations | Concluído | As migrations existentes estão versionadas, a Fase 11 não alterou modelos e `makemigrations --check --dry-run` permanece limpo. |
-| Setup em um comando | Pendente | `docker compose up --build` cria o banco e aplica migrations, mas não importa produtos, executa `seed_demo` nem garante o usuário de teste. |
+| Setup em um comando | Parcial | `docker compose up --build` cria o banco e aplica migrations. Superusuários podem restaurar todo o cenário comercial pelo painel, mas o primeiro bootstrap ainda não importa produtos nem garante a credencial de teste automaticamente. |
 | Modelagem no README | Pendente | A modelagem detalhada existe no plano, mas o README ainda não apresenta o diagrama ou a lista de tabelas exigida. |
 | Decisões e trade-offs no README | Pendente | As decisões existem em `/vault/decisoes`, mas precisam ser resumidas no README final. |
 | Testes documentados no README | Parcial | Os comandos e alguns cenários estão documentados; faltam resultados atuais e a matriz final de cobertura. |
@@ -55,7 +55,7 @@ A entrega ainda não está pronta. As pendências prioritárias são a aprovaç�
 | `.env.example` e segredos | Concluído | Exemplos existem para backend e frontend; arquivos `.env` são ignorados e a revisão da Fase 10 não encontrou segredos no histórico. |
 | Repositório público | Concluído | `https://github.com/cuz-cuz/prohall-tech-test` está público e usa `main`. |
 | Histórico incremental | Parcial | Existem oito commits progressivos, mas 56 entradas do trabalho atual estão modificadas ou não rastreadas e ainda não chegaram ao remoto. |
-| Deploy | Pendente | Railway, Vercel, e-mail de produção, URLs públicas e smoke test externo ainda não foram executados. |
+| Deploy | Em andamento | Configuração de contêiner, proxy `/api`, fallback da SPA, cookies e integração R2 foram preparados; Railway, PostgreSQL, Vercel, Cloudflare, SMTP, URLs públicas, seeds e smoke test ainda dependem de autenticação externa. |
 | Screenshots e vídeo | Pendente/opcional | Screenshots finais planejados ainda não existem; o vídeo de até cinco minutos é opcional. |
 
 ## Verificações executadas nesta auditoria
@@ -73,11 +73,9 @@ A entrega ainda não está pronta. As pendências prioritárias são a aprovaç�
 
 ## Ordem recomendada para concluir
 
-1. **Fase 13 — qualidade do ADMIN React:** aprovação visual, funcional, responsiva, acessível e de concorrência.
-2. **Setup reproduzível:** fazer o comando principal importar, popular e criar o usuário de demonstração com credencial documentada e exclusivamente local.
-3. **Commitar e publicar o trabalho atual:** dividir as alterações em commits coerentes e confirmar que migrations, documentação e novos arquivos estão rastreados.
-4. **Fase 14 — Deploy:** Railway, PostgreSQL, Vercel, e-mail, CORS/CSRF/cookies e smoke test público.
-5. **Fase 15 — Documentação e entrega:** README completo, modelagem, decisões, IA, limitações, URLs, screenshots e revisão final de segredos.
-6. **Validação manual:** executar e registrar o fluxo completo em celular e desktop antes da entrega.
+1. **Publicar as mudanças finais:** revisar migrations, documentação, arquivos rastreados e ausência de segredos antes do push.
+2. **Fase 14 — Deploy:** autenticar Railway e Vercel, provisionar PostgreSQL e SMTP, configurar variáveis, executar seeds e smoke test público.
+3. **Fase 15 — Documentação e entrega:** README completo, modelagem, decisões, IA, limitações, URLs, screenshots e revisão final de segredos.
+4. **Validação manual:** executar e registrar o fluxo completo em celular e desktop antes da entrega.
 
 O vídeo continua opcional. Busca semântica e outras extensões P2 devem esperar até todas as pendências obrigatórias acima serem encerradas.

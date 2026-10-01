@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
+from django.core.management.base import CommandError
 from django.db.models import Count, DecimalField, Max, Prefetch, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.middleware.csrf import get_token
@@ -11,6 +12,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import generics, status
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,10 +26,20 @@ from apps.customers.models import Customer
 from apps.orders.models import Order
 
 from .pagination import BackofficePagination
-from .permissions import IsActiveStaff
+from .demo_reset import (
+    DemoResetCooldown,
+    DemoResetInProgress,
+    DemoResetUnavailable,
+    reset_status,
+    restore_demo,
+)
+from .permissions import IsActiveStaff, IsActiveSuperuser
+from .media import MediaStorageUnavailable, MediaUploadError, upload_image
 from .serializers import (
     AdminBannerSerializer,
     AdminCustomerSerializer,
+    AdminDemoResetSerializer,
+    AdminImageUploadSerializer,
     AdminImportedProductSerializer,
     AdminListingSerializer,
     AdminLoginSerializer,
@@ -51,6 +63,7 @@ def _user_payload(user):
     return {
         "username": user.get_username(),
         "display_name": user.get_full_name().strip() or user.get_username(),
+        "is_superuser": user.is_superuser,
     }
 
 
@@ -294,12 +307,79 @@ class AdminBannerDetailView(StaffAPIViewMixin, generics.RetrieveUpdateAPIView):
     http_method_names = ("get", "patch", "head", "options")
 
 
+class AdminImageUploadView(StaffAPIViewMixin, APIView):
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        serializer = AdminImageUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            stored = upload_image(serializer.validated_data["image"])
+        except MediaStorageUnavailable as exc:
+            return Response(
+                {"message": str(exc)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except MediaUploadError as exc:
+            return Response(
+                {"message": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(
+            {"url": stored.url, "width": stored.width, "height": stored.height},
+            status=status.HTTP_201_CREATED,
+        )
+
+
 class AdminStoreSettingsView(StaffAPIViewMixin, generics.RetrieveUpdateAPIView):
     serializer_class = AdminStoreSettingsSerializer
     http_method_names = ("get", "patch", "head", "options")
 
     def get_object(self):
         return StoreSettings.load()
+
+
+class AdminDemoResetView(APIView):
+    authentication_classes = (SessionAuthentication,)
+    permission_classes = (IsActiveSuperuser,)
+
+    def get(self, request):
+        return Response(reset_status())
+
+    def post(self, request):
+        serializer = AdminDemoResetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            summary = restore_demo(username=request.user.get_username())
+        except DemoResetUnavailable:
+            return Response(
+                {"message": "A restauração da demonstração está desativada."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        except DemoResetInProgress:
+            return Response(
+                {"message": "Uma restauração já está em andamento."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        except DemoResetCooldown as exc:
+            return Response(
+                {
+                    "message": "Aguarde antes de restaurar novamente.",
+                    "retry_after": exc.retry_after,
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        except (DummyJSONError, ProductImportError, CommandError):
+            return Response(
+                {
+                    "message": (
+                        "O DummyJSON não pôde ser validado. Nenhum dado foi removido."
+                    )
+                },
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        request.session.pop("customer_id", None)
+        return Response(summary)
 
 
 class AdminProductImportView(StaffAPIViewMixin, APIView):

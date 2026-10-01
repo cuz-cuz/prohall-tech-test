@@ -52,3 +52,28 @@ class StoreSettings(models.Model):
 
     def __str__(self) -> str:
         return f"Frete grátis a partir de {self.free_shipping_minimum}"
+
+
+class DemoResetState(models.Model):
+    """Persistent lease and audit summary for the destructive demo reset."""
+
+    SINGLETON_PK = 1
+
+    locked_until = models.DateTimeField(null=True, blank=True)
+    last_reset_at = models.DateTimeField(null=True, blank=True)
+    last_reset_by = models.CharField(max_length=150, blank=True)
+    last_summary = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "estado da restauração de demonstração"
+        verbose_name_plural = "estado da restauração de demonstração"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(id=1),
+                name="core_demoresetstate_is_singleton",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.pk = self.SINGLETON_PK
+        super().save(*args, **kwargs)
