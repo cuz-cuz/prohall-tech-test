@@ -41,3 +41,16 @@ export function formatCategory(value = '') {
     .map((word) => word.charAt(0).toLocaleUpperCase('pt-BR') + word.slice(1))
     .join(' ')
 }
+
+/**
+ * Mirrors the backend split: installments that add back up to the total.
+ * The leftover cents go into the first one, and the count shrinks when the
+ * total cannot give every installment at least a cent.
+ */
+export function splitInstallments(totalCents, maxCount) {
+  const cents = Math.max(0, Math.round(totalCents))
+  const count = Math.max(1, Math.min(maxCount, cents))
+  const base = Math.floor(cents / count)
+  const remainder = cents - base * count
+  return { count, baseCents: base, firstCents: base + remainder }
+}

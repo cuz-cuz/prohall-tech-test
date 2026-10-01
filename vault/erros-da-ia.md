@@ -329,3 +329,17 @@ A afirmação foi corrigida na mensagem seguinte, antes de qualquer alteração 
 ### Consequência evitada
 
 Corrigir somente a atualização do nome teria ativado a reescrita retroativa do histórico em vez de resolvê-la, porque a atualização já existia e o snapshot não.
+
+## 1º de outubro de 2026 — Falso positivo por arredondamento do Python na auditoria
+
+### Erro
+
+Na auditoria das regras de negócio foi relatado que o preço no Pix divergia um centavo entre a página do produto e o carrinho, em três anúncios. A verificação usou `round()` do Python para simular o `Math.round` do JavaScript. São arredondamentos diferentes: `round()` arredonda para o par mais próximo e `Math.round` arredonda meio para cima. O carrinho sempre esteve correto.
+
+### Correção e prevenção
+
+O cálculo foi reexecutado em Node, com o mesmo código do navegador, antes de qualquer alteração; os três casos deram igual ao servidor e o achado foi retirado. Ao auditar aritmética de outra linguagem, executar no runtime de destino em vez de reimplementar a operação, porque o modo de arredondamento é parte do comportamento.
+
+### Consequência evitada
+
+A correção teria sido feita sobre código correto, trocando um arredondamento que já casava com o servidor.

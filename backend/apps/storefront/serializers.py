@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.catalog.models import Banner, Listing, Menu
 
+from .catalog import split_installments
 from .search import normalize_search_term
 
 
@@ -82,6 +83,7 @@ class ListingSerializer(serializers.ModelSerializer):
     pix_price = serializers.SerializerMethodField()
     installment_count = serializers.SerializerMethodField()
     installment_value = serializers.SerializerMethodField()
+    first_installment_value = serializers.SerializerMethodField()
 
     @staticmethod
     def _money(value):
@@ -104,13 +106,13 @@ class ListingSerializer(serializers.ModelSerializer):
         return format(self._money(obj.effective_price * multiplier), ".2f")
 
     def get_installment_count(self, obj):
-        return settings.MAX_INSTALLMENTS
+        return split_installments(obj.effective_price)[0]
 
     def get_installment_value(self, obj):
-        return format(
-            self._money(obj.effective_price / settings.MAX_INSTALLMENTS),
-            ".2f",
-        )
+        return format(split_installments(obj.effective_price)[1], ".2f")
+
+    def get_first_installment_value(self, obj):
+        return format(split_installments(obj.effective_price)[2], ".2f")
 
     class Meta:
         model = Listing
@@ -135,6 +137,7 @@ class ListingSerializer(serializers.ModelSerializer):
             "pix_price",
             "installment_count",
             "installment_value",
+            "first_installment_value",
             "free_shipping",
             "created_at",
         )

@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db.models import (
@@ -75,3 +75,24 @@ def filter_and_order_listings(queryset, filters, *, default_ordering="best_selli
         "featured": ("menu_links__display_order", "id"),
     }
     return queryset.order_by(*ordering_fields[ordering])
+
+
+def split_installments(total, *, count=None):
+    """Break a total into installments that add back up to it, to the cent.
+
+    Dividing and rounding leaves a few cents unaccounted for, so the remainder
+    goes into the first installment. The count shrinks when the total is too
+    small to give every installment at least one cent.
+    """
+
+    total_cents = int(
+        (total * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
+    requested = settings.MAX_INSTALLMENTS if count is None else count
+    installments = max(1, min(requested, total_cents))
+    base, remainder = divmod(total_cents, installments)
+    return (
+        installments,
+        (Decimal(base) / 100).quantize(Decimal("0.01")),
+        (Decimal(base + remainder) / 100).quantize(Decimal("0.01")),
+    )

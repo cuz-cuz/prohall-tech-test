@@ -56,6 +56,7 @@ const product = {
   pix_price: '386.10',
   installment_count: 12,
   installment_value: '35.75',
+  first_installment_value: '35.75',
   free_shipping: true,
   created_at: '2026-09-30T12:00:00Z',
 }
@@ -440,6 +441,30 @@ describe('Mosaico storefront', () => {
     expect(
       screen.getByRole('heading', { name: /seu carrinho está vazio/i }),
     ).toBeInTheDocument()
+  })
+
+  it('shows the order date in Brasilia time, not the browser time zone', async () => {
+    persistProductInCart()
+    mockSuccessfulApi()
+    fetch.mockImplementation((url) => {
+      if (url.includes('/customer/session/')) {
+        return jsonResponse({ authenticated: true, customer: { name: 'Ana Lima', email: 'ana@example.com' }, csrf_token: 'test-csrf-token' })
+      }
+      if (url.includes('/orders/mine/')) return jsonResponse([approvedOrder])
+      if (url.includes('/storefront/home/')) return jsonResponse(homePayload)
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) })
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/meus-pedidos']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    // 2026-09-30T12:00:00Z is 09:00 in Sao Paulo (UTC-3), 12:00 in UTC.
+    const when = await screen.findByText(/30 de set\. de 2026/)
+    expect(when).toHaveTextContent('09:00')
+    expect(when).not.toHaveTextContent('12:00')
   })
 
   it('tells the shopper how much is missing for free shipping', async () => {

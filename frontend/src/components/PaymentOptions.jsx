@@ -2,6 +2,7 @@ import {
   calculateSavingsCents,
   formatCurrency,
   formatCurrencyFromCents,
+  splitInstallments,
 } from '../utils/formatters'
 
 function priceParts(value) {
@@ -20,6 +21,8 @@ function PaymentRows({
   installments,
   installment,
   installmentTotal,
+  firstInstallment,
+  unevenInstallments,
   freeShipping,
   minimum,
   detailed = false,
@@ -40,6 +43,7 @@ function PaymentRows({
           {detailed ? <small>Cartão sem juros</small> : null}
           <strong>{detailed ? `${installments}x de ${installment}` : 'Cartão sem juros'}</strong>
           <span>{detailed ? `Total parcelado de ${installmentTotal}` : <b>{installments}x de {installment}</b>}</span>
+          {unevenInstallments ? <small>1ª parcela de {firstInstallment}</small> : null}
         </div>
       </li>
       <li className="payment-option payment-option--delivery">
@@ -55,14 +59,21 @@ function PaymentRows({
 }
 
 export function PaymentOptions({ product, amountCents, terms, compact = false }) {
-  const installments = product?.installment_count ?? terms?.max_installments ?? 12
+  const installments = product?.installment_count ?? splitInstallments(amountCents, terms?.max_installments ?? 12).count
   const pixDiscount = Number(terms?.pix_discount_percentage ?? 10)
   const pix = product?.pix_price
     ? formatCurrency(product.pix_price)
     : formatCurrencyFromCents(Math.round(amountCents * (100 - pixDiscount) / 100))
-  const installment = product?.installment_value
+  // The backend already split the product price; the cart repeats the split
+  // locally so both screens show installments that add up to the total.
+  const cartSplit = product ? null : splitInstallments(amountCents, installments)
+  const installment = product
     ? formatCurrency(product.installment_value)
-    : formatCurrencyFromCents(Math.round(amountCents / installments))
+    : formatCurrencyFromCents(cartSplit.baseCents)
+  const firstInstallment = product
+    ? formatCurrency(product.first_installment_value)
+    : formatCurrencyFromCents(cartSplit.firstCents)
+  const unevenInstallments = firstInstallment !== installment
   const minimum = terms?.free_shipping_minimum ?? 199
   const freeShipping = product?.free_shipping
     ?? amountCents >= Math.round(Number(minimum) * 100)
@@ -100,7 +111,7 @@ export function PaymentOptions({ product, amountCents, terms, compact = false })
           </p>
         ) : null}
         <p className="payment-details__installment">Em até <strong>{installments}x de {installment} sem juros</strong></p>
-        <p className="payment-details__total">(total parcelado {formatCurrency(product.effective_price)})</p>
+        <p className="payment-details__total">(total parcelado {formatCurrency(product.effective_price)}{unevenInstallments ? `, 1ª parcela de ${firstInstallment}` : ''})</p>
         <details className="payment-details__disclosure">
           <summary>Ver opções de pagamento <i aria-hidden="true" /></summary>
           <div className="payment-details__expanded">
@@ -114,6 +125,8 @@ export function PaymentOptions({ product, amountCents, terms, compact = false })
               installments={installments}
               installment={installment}
               installmentTotal={formatCurrency(product.effective_price)}
+              firstInstallment={firstInstallment}
+              unevenInstallments={unevenInstallments}
               freeShipping={freeShipping}
               minimum={minimum}
               detailed
@@ -130,7 +143,7 @@ export function PaymentOptions({ product, amountCents, terms, compact = false })
   return (
     <section className={`payment-options ${compact ? 'payment-options--compact' : ''}`} aria-label="Formas de pagamento">
       <h2>Formas de pagamento</h2>
-      <PaymentRows pixDiscount={pixDiscount} pix={pix} installments={installments} installment={installment} installmentTotal={formatCurrencyFromCents(amountCents)} freeShipping={freeShipping} minimum={minimum} />
+      <PaymentRows pixDiscount={pixDiscount} pix={pix} installments={installments} installment={installment} installmentTotal={formatCurrencyFromCents(amountCents)} firstInstallment={firstInstallment} unevenInstallments={unevenInstallments} freeShipping={freeShipping} minimum={minimum} />
       <small>Condições informativas da loja; o checkout confirma o total vigente.</small>
     </section>
   )

@@ -484,6 +484,45 @@ class CheckoutAdditionalAPITests(CheckoutAPITests):
             {"ana@example.com"},
         )
 
+    def test_multi_item_order_total_is_the_exact_sum_of_its_items(self):
+        second_product = ImportedProduct.objects.create(
+            external_id=202,
+            title="Batom matte",
+            category="beauty",
+            sku="BAT-202",
+            source_price=Decimal("33.33"),
+            last_synced_at=timezone.now(),
+        )
+        second_listing = Listing.objects.create(
+            product=second_product,
+            slug="batom-matte",
+            title="Batom matte",
+            price=Decimal("33.33"),
+            stock_quantity=10,
+            active=True,
+        )
+        payload = self.payload(quantity=3)
+        payload["items"].append(
+            {
+                "listing_id": second_listing.id,
+                "quantity": 7,
+                "expected_unit_price": "33.33",
+            }
+        )
+
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        order = Order.objects.get(public_id=response.data["public_id"])
+        # 3 x 99.90 + 7 x 33.33, to the cent.
+        self.assertEqual(order.subtotal, Decimal("533.01"))
+        self.assertEqual(order.total, order.subtotal)
+        self.assertEqual(
+            sum(item.subtotal for item in order.items.all()),
+            order.subtotal,
+        )
+        self.assertEqual(response.data["subtotal"], "533.01")
+
     def test_database_rejects_total_different_from_subtotal(self):
         response = self.client.post(
             self.url,

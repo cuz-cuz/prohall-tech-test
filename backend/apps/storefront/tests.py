@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from apps.storefront.catalog import split_installments
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
 from apps.customers.models import Customer
 from apps.orders.models import Order, OrderItem
@@ -489,3 +490,27 @@ class CatalogConstraintsTests(TestCase):
         )
 
         self.assertEqual(list(Banner.objects.visible(now).values_list("title", flat=True)), ["Ativo"])
+
+
+class InstallmentSplitTests(SimpleTestCase):
+    def test_installments_always_add_back_up_to_the_total(self):
+        for amount in ("7.33", "28.51", "116.37", "100.00", "429.00", "0.07", "0.01"):
+            with self.subTest(amount=amount):
+                total = Decimal(amount)
+                count, base, first = split_installments(total)
+                self.assertEqual(first + base * (count - 1), total)
+                self.assertGreaterEqual(base, Decimal("0.01"))
+
+    def test_remainder_goes_into_the_first_installment(self):
+        self.assertEqual(
+            split_installments(Decimal("100.00")),
+            (12, Decimal("8.33"), Decimal("8.37")),
+        )
+
+    def test_count_shrinks_when_the_total_cannot_fill_every_installment(self):
+        self.assertEqual(split_installments(Decimal("0.07"))[0], 7)
+        self.assertEqual(split_installments(Decimal("0.01"))[0], 1)
+
+    def test_an_exact_division_leaves_every_installment_equal(self):
+        count, base, first = split_installments(Decimal("429.00"))
+        self.assertEqual((count, base, first), (12, Decimal("35.75"), Decimal("35.75")))

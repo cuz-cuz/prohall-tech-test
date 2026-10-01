@@ -807,3 +807,35 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 
 - 94 testes backend aprovados em PostgreSQL;
 - o teste do `--remover-fora-do-nicho` passou a verificar também que o anúncio fora do nicho fica inativo e que um anúncio do nicho continua ativo.
+
+## 1º de outubro de 2026 — Auditoria das regras de negócio
+
+### Verificado e correto
+
+- só anúncios ativos aparecem: todas as consultas públicas passam por `active_listing_queryset()` e o checkout recusa anúncio inativo;
+- estoque: bloqueio por `select_for_update` em ordem estável, `PositiveIntegerField` no banco e teste de concorrência disputando a última unidade;
+- promoção menor que o preço normal em três camadas (constraint, serializer, teste) e preço relido sob lock no checkout, com 409 `price_changed`;
+- cartão terminado em `0000` recusado, demais aprovados, e o decremento de estoque só ocorre quando aprovado;
+- pedido preserva nome, preço, SKU, imagem e id externo, além do nome do comprador, com `SET_NULL` no anúncio;
+- fuso de Brasília no backend (`TIME_ZONE`, `USE_TZ`) e nos formatadores do cliente e do painel.
+
+### Falha encontrada e corrigida
+
+- o parcelamento não fechava com o total em 41 dos 45 anúncios ativos: a parcela era `preço / 12` arredondada e a soma não voltava ao total. `split_installments` em `apps/storefront/catalog.py` passou a distribuir o resto na primeira parcela e a reduzir o número de parcelas quando o total não dá um centavo para cada; a API expõe `first_installment_value` e a interface mostra a primeira parcela quando ela difere. O mesmo cálculo foi espelhado em `splitInstallments` no frontend para o carrinho.
+
+### Falso positivo retirado
+
+- o preço no Pix foi relatado como divergente entre produto e carrinho; a simulação usou `round()` do Python, que arredonda para o par, em vez do `Math.round` do JavaScript. Reexecutado em Node, os três casos batem com o servidor. Registrado em `erros-da-ia.md`.
+
+### Lacunas de cobertura fechadas
+
+- checkout com vários itens, confirmando que o total é a soma exata dos itens: `Order.subtotal` não é garantido por constraint, só o subtotal de cada item;
+- renderização em horário de Brasília, afirmando 09:00 e negando 12:00 para um pedido gravado às 12:00 UTC;
+- agendamento de banner passou a converter nos dois sentidos pelo fuso da loja, não pelo da máquina do operador; o teste fixa `2026-10-02T09:00` como `2026-10-02T12:00:00.000Z`.
+
+### Validação
+
+- 99 testes backend aprovados em PostgreSQL e 48 no frontend;
+- as 45 somas de parcelas dos anúncios ativos conferidas contra os dados reais;
+- ida e volta do agendamento conferida em Node, inclusive na meia-noite;
+- lint e build de produção aprovados.

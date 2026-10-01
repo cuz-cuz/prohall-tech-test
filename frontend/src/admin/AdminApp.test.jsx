@@ -310,8 +310,10 @@ describe('Mosaico Admin', () => {
     const call = fetch.mock.calls.find(([url, options]) => url.endsWith('/admin/banners/') && options.method === 'POST')
     const payload = JSON.parse(call[1].body)
     expect(payload).toMatchObject({ title: 'Lançamentos', image_url: 'https://example.com/lancamentos.jpg', link_url: '/produtos' })
-    expect(payload.starts_at).toContain('2026-10-02')
-    expect(payload.ends_at).toContain('2026-10-03')
+    // Typed as Brasilia time regardless of the operator's machine: 09:00 in
+    // Sao Paulo is 12:00 UTC.
+    expect(payload.starts_at).toBe('2026-10-02T12:00:00.000Z')
+    expect(payload.ends_at).toBe('2026-10-03T21:00:00.000Z')
   })
 
   it('filters with the keyboard through the custom dropdown', async () => {
