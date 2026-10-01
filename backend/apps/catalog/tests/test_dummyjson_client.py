@@ -93,3 +93,67 @@ class DummyJSONClientTests(SimpleTestCase):
                 "invalid JSON",
             ):
                 client.fetch_all_products(page_size=2)
+
+    def test_reads_one_paginated_endpoint_per_category(self):
+        requested = []
+
+        def handler(request):
+            requested.append((request.url.path, int(request.url.params["skip"])))
+            products = (
+                [product_payload(1)]
+                if request.url.path.endswith("/beauty")
+                else [product_payload(2), product_payload(3)]
+            )
+            return httpx.Response(
+                200,
+                json={
+                    "products": products,
+                    "total": len(products),
+                    "skip": int(request.url.params["skip"]),
+                    "limit": 2,
+                },
+            )
+
+        transport = httpx.MockTransport(handler)
+        with httpx.Client(base_url="https://dummyjson.test", transport=transport) as http:
+            client = DummyJSONClient(client=http)
+            products = client.fetch_products_in_categories(
+                ["beauty", "womens-bags"], page_size=2
+            )
+
+        self.assertEqual([product["id"] for product in products], [1, 2, 3])
+        self.assertEqual(
+            requested,
+            [("/products/category/beauty", 0), ("/products/category/womens-bags", 0)],
+        )
+
+    def test_rejects_the_same_product_arriving_from_two_categories(self):
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json={
+                    "products": [product_payload(1)],
+                    "total": 1,
+                    "skip": 0,
+                    "limit": 2,
+                },
+            )
+        )
+        with httpx.Client(base_url="https://dummyjson.test", transport=transport) as http:
+            client = DummyJSONClient(client=http)
+            with self.assertRaisesMessage(
+                DummyJSONResponseError,
+                "Duplicate external product id",
+            ):
+                client.fetch_products_in_categories(
+                    ["beauty", "womens-bags"], page_size=2
+                )
+
+    def test_rejects_a_category_slug_that_could_escape_the_path(self):
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(200, json={"products": [], "total": 0, "skip": 0})
+        )
+        with httpx.Client(base_url="https://dummyjson.test", transport=transport) as http:
+            client = DummyJSONClient(client=http)
+            with self.assertRaisesMessage(ValueError, "Invalid category slug"):
+                client.fetch_products_in_categories(["../../users"], page_size=2)

@@ -38,7 +38,7 @@ Com o PostgreSQL configurado e as migrations aplicadas:
 .\.venv\Scripts\python.exe .\backend\manage.py import_products
 ```
 
-O comando percorre todas as páginas do DummyJSON e pode ser executado novamente. Produtos existentes são atualizados pelo identificador externo, sem duplicação. O `seed_demo` seleciona os 45 itens do nicho feminino atualmente disponíveis nas categorias configuradas e cria anúncios separados; descontos da origem servem apenas para preparar promoções nos anúncios de demonstração e promoções personalizadas são preservadas.
+O comando lê somente as categorias do nicho feminino da loja, definidas em `backend/apps/catalog/niche.py`: `beauty`, `skin-care`, `fragrances`, `tops`, `womens-dresses`, `womens-bags`, `womens-shoes`, `sunglasses`, `womens-jewellery` e `womens-watches`. Cada categoria é lida em um endpoint paginado próprio e o comando pode ser executado novamente. Produtos existentes são atualizados pelo identificador externo, sem duplicação. Use `--all-categories` para importar o catálogo inteiro do DummyJSON e `--remover-fora-do-nicho` para apagar produtos fora do nicho que não tenham anúncio. O `seed_demo` seleciona os 45 itens do nicho feminino atualmente disponíveis nas categorias configuradas e cria anúncios separados; descontos da origem servem apenas para preparar promoções nos anúncios de demonstração e promoções personalizadas são preservadas.
 
 ### Vitrine e administrador de demonstração
 

@@ -1,7 +1,11 @@
-from typing import Any
+import re
+from typing import Any, Iterable
 
 import httpx
 from django.conf import settings
+
+
+CATEGORY_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 
 
 class DummyJSONError(RuntimeError):
@@ -45,19 +49,63 @@ class DummyJSONClient:
         self.close()
 
     def fetch_all_products(self, *, page_size: int | None = None) -> list[dict[str, Any]]:
+        return self._collect_products(
+            "/products",
+            limit=self._validated_limit(page_size),
+            seen_ids=set(),
+        )
+
+    def fetch_products_in_categories(
+        self,
+        categories: Iterable[str],
+        *,
+        page_size: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Read only the categories the store sells, one paginated call each.
+
+        A product carries a single category, so the same id must never arrive
+        from two of them. Sharing `seen_ids` turns that contract into a failure
+        instead of a silent duplicate.
+        """
+
+        limit = self._validated_limit(page_size)
+        seen_ids: set[int] = set()
+        products: list[dict[str, Any]] = []
+
+        for category in categories:
+            if not CATEGORY_SLUG.fullmatch(category):
+                raise ValueError(f"Invalid category slug: {category!r}")
+            products.extend(
+                self._collect_products(
+                    f"/products/category/{category}",
+                    limit=limit,
+                    seen_ids=seen_ids,
+                )
+            )
+        return products
+
+    @staticmethod
+    def _validated_limit(page_size: int | None) -> int:
         requested_limit = page_size or settings.DUMMYJSON_PAGE_SIZE
         if isinstance(requested_limit, bool) or not isinstance(requested_limit, int):
             raise ValueError("page_size must be an integer.")
         if requested_limit < 1 or requested_limit > 100:
             raise ValueError("page_size must be between 1 and 100.")
+        return requested_limit
 
+    def _collect_products(
+        self,
+        path: str,
+        *,
+        limit: int,
+        seen_ids: set[int],
+    ) -> list[dict[str, Any]]:
         products: list[dict[str, Any]] = []
-        seen_ids: set[int] = set()
         skip = 0
         expected_total: int | None = None
 
         while True:
-            payload = self._fetch_page(limit=requested_limit, skip=skip)
+            payload = self._fetch_page(path, limit=limit, skip=skip)
             page_products, page_total, page_skip = self._validate_page(payload)
 
             if page_skip != skip:
@@ -103,10 +151,10 @@ class DummyJSONClient:
 
         return products
 
-    def _fetch_page(self, *, limit: int, skip: int) -> dict[str, Any]:
+    def _fetch_page(self, path: str, *, limit: int, skip: int) -> dict[str, Any]:
         try:
             response = self._client.get(
-                "/products",
+                path,
                 params={"limit": limit, "skip": skip},
             )
             response.raise_for_status()

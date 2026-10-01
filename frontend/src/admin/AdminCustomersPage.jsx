@@ -4,8 +4,11 @@ import { useApiResource } from '../hooks/useApiResource'
 import { getAdminCustomers } from '../services/api'
 import { formatCurrency } from '../utils/formatters'
 import { AdminPagination } from './AdminPagination'
+import { AdminSelect } from './AdminSelect'
 import { AdminResourceError, AdminTableSkeleton } from './AdminResourceState'
 import { formatAdminDateTime } from './adminFormatters'
+
+const statusOptions = [{ value: '', label: 'Todos' }, { value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]
 
 export function AdminCustomersPage() {
   const [page, setPage] = useState(1)
@@ -20,7 +23,7 @@ export function AdminCustomersPage() {
         <div><h1>Clientes</h1><p>Contas vinculadas ao checkout e ao histórico de pedidos.</p></div>
         {state.data ? <span className="admin-count">{state.data.count} clientes</span> : null}
       </header>
-      <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}><label><span>Buscar</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Nome ou e-mail" /></label><label><span>Status</span><select value={filters.active} onChange={(event) => setFilters({ ...filters, active: event.target.value })}><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></label><button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button></form>
+      <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}><label><span>Buscar</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Nome ou e-mail" /></label><AdminSelect label="Status" value={filters.active} options={statusOptions} onChange={(value) => setFilters({ ...filters, active: value })} /><button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button></form>
 
       {state.status === 'loading' && !state.data ? <AdminTableSkeleton /> : null}
       {state.status === 'error' ? <AdminResourceError error={state.error} onRetry={state.retry} /> : null}

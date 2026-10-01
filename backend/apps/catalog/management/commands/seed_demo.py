@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils.text import slugify
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
+from apps.catalog.niche import CATEGORY_GROUPS, NICHE_CATEGORIES
 
 
 MENU_DEFINITIONS = (
@@ -21,17 +22,6 @@ MENU_DEFINITIONS = (
     ("Acessórios", "acessorios", 7),
 )
 
-CATEGORY_GROUPS = {
-    "beleza": {"beauty"},
-    "cuidados-pessoais": {"skin-care"},
-    "perfumes": {"fragrances"},
-    "roupas": {"tops", "womens-dresses"},
-    "bolsas": {"womens-bags"},
-    "calcados": {"womens-shoes"},
-    "acessorios": {"sunglasses", "womens-jewellery", "womens-watches"},
-}
-
-FEMALE_FASHION_CATEGORIES = frozenset().union(*CATEGORY_GROUPS.values())
 MALE_TITLE_PATTERN = re.compile(r"\b(?:men|men's|mens|male)\b", re.IGNORECASE)
 LEGACY_MENU_SLUGS = ("casa", "tecnologia")
 BANNER_CATEGORIES = ("beauty", "fragrances", "womens-dresses")
@@ -44,7 +34,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         imported_products = list(
             ImportedProduct.objects.filter(
-                category__in=FEMALE_FASHION_CATEGORIES
+                category__in=NICHE_CATEGORIES
             ).order_by("external_id")
         )
         products = [

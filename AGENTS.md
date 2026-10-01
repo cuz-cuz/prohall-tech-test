@@ -31,10 +31,11 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 9. `OrderItem` guarda snapshot de nome, preço, SKU e imagem; `Order` guarda snapshot do nome do comprador. Histórico de pedido nunca lê dado que ainda pode mudar.
 10. Datas são persistidas em UTC e exibidas em `America/Sao_Paulo`.
 11. Cliente só pode consultar os próprios pedidos.
-12. Importação do DummyJSON é paginada, idempotente e não sobrescreve anúncios.
+12. Importação do DummyJSON é paginada, idempotente e não sobrescreve anúncios; por padrão traz apenas as categorias do nicho definidas em `apps/catalog/niche.py`.
 13. Carrinho persiste após recarregar a página.
 14. Busca considera título, descrição, marca e categoria; ignora caixa e acentos e aceita termos incompletos.
 15. Nunca solicitar, armazenar ou registrar um número real de cartão.
+16. O painel não usa `<select>` nativo: dropdowns são `AdminSelect` e ações de tabela confirmam ou editam em `AdminModal`.
 
 ## Segurança
 

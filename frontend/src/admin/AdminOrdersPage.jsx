@@ -4,8 +4,16 @@ import { useApiResource } from '../hooks/useApiResource'
 import { getAdminOrders } from '../services/api'
 import { formatCurrency } from '../utils/formatters'
 import { AdminPagination } from './AdminPagination'
+import { AdminSelect } from './AdminSelect'
 import { AdminResourceError, AdminTableSkeleton } from './AdminResourceState'
 import { formatAdminDateTime, orderStatusLabels, shortOrderId } from './adminFormatters'
+
+const statusOptions = [
+  { value: '', label: 'Todos' },
+  { value: 'payment_approved', label: 'Pagamento aprovado' },
+  { value: 'payment_declined', label: 'Pagamento recusado' },
+  { value: 'cancelled', label: 'Cancelado' },
+]
 
 export function AdminOrdersPage() {
   const [page, setPage] = useState(1)
@@ -20,7 +28,7 @@ export function AdminOrdersPage() {
         <div><h1>Pedidos</h1><p>Valores e status preservados como registro da compra.</p></div>
         {state.data ? <span className="admin-count">{state.data.count} pedidos</span> : null}
       </header>
-      <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}><label><span>Buscar cliente</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Nome ou e-mail" /></label><label><span>Status</span><select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Todos</option><option value="payment_approved">Pagamento aprovado</option><option value="payment_declined">Pagamento recusado</option><option value="cancelled">Cancelado</option></select></label><button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button></form>
+      <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}><label><span>Buscar cliente</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Nome ou e-mail" /></label><AdminSelect label="Status" value={filters.status} options={statusOptions} onChange={(value) => setFilters({ ...filters, status: value })} /><button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button></form>
 
       {state.status === 'loading' && !state.data ? <AdminTableSkeleton /> : null}
       {state.status === 'error' ? <AdminResourceError error={state.error} onRetry={state.retry} /> : null}

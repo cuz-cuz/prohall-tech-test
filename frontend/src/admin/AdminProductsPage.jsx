@@ -5,7 +5,10 @@ import { getAdminProducts } from '../services/api'
 import { formatCategory, formatCurrency } from '../utils/formatters'
 import { AdminPagination } from './AdminPagination'
 import { AdminResourceError, AdminTableSkeleton } from './AdminResourceState'
+import { AdminSelect } from './AdminSelect'
 import { formatAdminDateTime } from './adminFormatters'
+
+const listingOptions = [{ value: '', label: 'Todos' }, { value: 'true', label: 'Com anúncio' }, { value: 'false', label: 'Sem anúncio' }]
 
 export function AdminProductsPage() {
   const [page, setPage] = useState(1)
@@ -27,7 +30,7 @@ export function AdminProductsPage() {
       </header>
       <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}>
         <label><span>Buscar</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Título, marca, categoria ou SKU" /></label>
-        <label><span>Anúncios</span><select value={filters.has_listing} onChange={(event) => setFilters({ ...filters, has_listing: event.target.value })}><option value="">Todos</option><option value="true">Com anúncio</option><option value="false">Sem anúncio</option></select></label>
+        <AdminSelect label="Anúncios" value={filters.has_listing} options={listingOptions} onChange={(value) => setFilters({ ...filters, has_listing: value })} />
         <button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button>
       </form>
 

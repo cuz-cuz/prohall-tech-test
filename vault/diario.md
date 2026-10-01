@@ -694,3 +694,35 @@ O checkout já atualizava o nome da conta em compras seguintes (`services.py`), 
 
 - antes da Fase 14, selecionar **GPT-5.6 Sol — High**;
 - a suíte PostgreSQL voltou a rodar nesta máquina; a pendência registrada na Fase 11 está resolvida.
+
+## 1º de outubro de 2026 — Nicho na importação, dropdowns e modais
+
+### Entregue
+
+- categorias do nicho centralizadas em `apps/catalog/niche.py`, lidas pelo importador, pelo `seed_demo` e pelo painel;
+- `DummyJSONClient.fetch_products_in_categories` lê um endpoint paginado por categoria, valida o slug e recusa o mesmo produto vindo de duas categorias;
+- `sync_products` passou a importar somente o nicho por padrão, com filtro redundante após a normalização e contagem de ignorados;
+- `import_products` ganhou `--all-categories` para o catálogo inteiro e `--remover-fora-do-nicho` para apagar apenas produtos sem anúncio;
+- painel informa as categorias lidas e quantos itens ficaram fora do nicho;
+- `AdminSelect`: listbox acessível com rótulo acima, painel destacado, divisórias entre opções e opção escolhida realçada, conforme `Prints/exemplo dropdown.jfif`;
+- todos os seletores nativos do painel foram substituídos; nenhum `<select>` permanece no projeto;
+- `AdminModal` e `AdminConfirmModal`: diálogos com `aria-modal`, foco inicial, ciclo de Tab preso, Escape, clique no fundo e devolução do foco ao elemento de origem;
+- editores de anúncio, menu e banner e as confirmações de ativar/desativar passaram a acontecer em modal, no lugar do painel embutido e da confirmação em linha.
+
+### Motivo
+
+A loja é de nicho feminino, mas a importação trazia as 24 categorias do DummyJSON. Buscar por categoria reduziu de 194 para 46 produtos e tornou a regra explícita no código.
+
+### Validação
+
+- 87 testes backend aprovados em PostgreSQL;
+- novos testes cobrem o filtro de nicho, o descarte com contagem, `--all-categories`, a remoção que preserva produtos com anúncio, a leitura por categoria e a recusa de slug com travessia de caminho;
+- importação real executada contra o DummyJSON: 46 produtos do nicho processados;
+- 36 testes frontend aprovados, incluindo navegação por teclado no dropdown, Escape sem alterar valor e confirmação em modal que só envia `PATCH` após o aceite;
+- lint e build de produção aprovados;
+- **não validado visualmente**: a extensão do Chrome não está conectada nesta máquina, então o dropdown e os modais não foram comparados ao print em tela.
+
+### Próximo
+
+- conferir o dropdown e os modais no navegador antes de seguir para a Fase 14;
+- decidir se os 148 produtos fora do nicho já importados serão removidos com `--remover-fora-do-nicho`.

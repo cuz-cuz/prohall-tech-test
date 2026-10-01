@@ -5,11 +5,15 @@ import { createAdminListing, getAdminListings, getAdminProducts, updateAdminList
 import { formatCurrency } from '../utils/formatters'
 import { AdminFeedback, FieldError } from './AdminFeedback'
 import { apiFieldErrors, firstApiError } from './adminForms'
+import { AdminModal, AdminConfirmModal } from './AdminModal'
 import { AdminPagination } from './AdminPagination'
 import { AdminResourceError, AdminTableSkeleton } from './AdminResourceState'
+import { AdminSelect } from './AdminSelect'
 import { AdminIcon } from './AdminIcon'
 
 const emptyListing = { product_id: '', title: '', description: '', price: '', promotional_price: '', stock_quantity: 0, active: true }
+const statusOptions = [{ value: '', label: 'Todos' }, { value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]
+const stockOptions = [{ value: '', label: 'Todos' }, { value: 'out', label: 'Esgotado' }, { value: 'low', label: 'Baixo (1–5)' }, { value: 'in', label: 'Acima de 5' }]
 
 export function AdminListingsPage() {
   const [page, setPage] = useState(1)
@@ -21,10 +25,12 @@ export function AdminListingsPage() {
   const [feedback, setFeedback] = useState(null)
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(null)
+  const [toggling, setToggling] = useState(false)
   const loadListings = useCallback((options) => getAdminListings({ ...applied, page }, options), [applied, page])
   const loadProducts = useCallback((options) => getAdminProducts({ page_size: 500 }, options), [])
   const state = useApiResource(loadListings)
   const products = useApiResource(loadProducts)
+  const productOptions = (products.data?.results ?? []).map((product) => ({ value: product.id, label: `${product.title} · ${product.sku || `ID ${product.external_id}`}` }))
 
   function openEditor(listing = null) {
     setEditor(listing ?? 'new')
@@ -43,6 +49,11 @@ export function AdminListingsPage() {
 
   async function save(event) {
     event.preventDefault()
+    // The listbox replaces a required select, so the empty case is checked here.
+    if (!form.product_id) {
+      setErrors({ product_id: 'Selecione o produto de origem.' })
+      return
+    }
     setSaving(true)
     setErrors({})
     try {
@@ -62,13 +73,17 @@ export function AdminListingsPage() {
   }
 
   async function toggle(listing) {
+    setToggling(true)
     try {
       await updateAdminListing(listing.id, { active: !listing.active })
       setFeedback({ tone: 'success', message: `Anúncio ${listing.active ? 'desativado' : 'ativado'}.` })
       setConfirming(null)
-      state.retry()
     } catch (error) {
       setFeedback({ tone: 'error', message: firstApiError(error) })
+      setConfirming(null)
+    } finally {
+      setToggling(false)
+      state.retry()
     }
   }
 
@@ -78,15 +93,14 @@ export function AdminListingsPage() {
       <AdminFeedback tone={feedback?.tone} onDismiss={() => setFeedback(null)}>{feedback?.message}</AdminFeedback>
       <form className="admin-filters" onSubmit={(event) => { event.preventDefault(); setPage(1); setApplied(filters) }}>
         <label><span>Buscar</span><input value={filters.q} onChange={(event) => setFilters({ ...filters, q: event.target.value })} placeholder="Título, marca, categoria ou SKU" /></label>
-        <label><span>Status</span><select value={filters.active} onChange={(event) => setFilters({ ...filters, active: event.target.value })}><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></label>
-        <label><span>Estoque</span><select value={filters.stock} onChange={(event) => setFilters({ ...filters, stock: event.target.value })}><option value="">Todos</option><option value="out">Esgotado</option><option value="low">Baixo (1–5)</option><option value="in">Acima de 5</option></select></label>
+        <AdminSelect label="Status" value={filters.active} options={statusOptions} onChange={(value) => setFilters({ ...filters, active: value })} />
+        <AdminSelect label="Estoque" value={filters.stock} options={stockOptions} onChange={(value) => setFilters({ ...filters, stock: value })} />
         <button className="admin-button admin-button--secondary" type="submit">Aplicar filtros</button>
       </form>
       {editor ? (
-        <section className="admin-panel admin-editor" aria-labelledby="listing-editor-title">
-          <header className="admin-panel__heading"><div><h2 id="listing-editor-title">{editor === 'new' ? 'Novo anúncio' : `Editar ${editor.title}`}</h2><p>O produto importado é somente a origem; os dados comerciais ficam no anúncio.</p></div><button className="admin-text-button" type="button" onClick={() => setEditor(null)}>Fechar</button></header>
+        <AdminModal title={editor === 'new' ? 'Novo anúncio' : `Editar ${editor.title}`} description="O produto importado é somente a origem; os dados comerciais ficam no anúncio." onClose={() => setEditor(null)}>
           <form className="admin-form-grid" onSubmit={save}>
-            <label className="admin-field admin-field--wide"><span>Produto de origem</span><select required disabled={editor !== 'new'} value={form.product_id} onChange={(event) => setForm({ ...form, product_id: event.target.value })}><option value="">Selecione um produto</option>{products.data?.results.map((product) => <option key={product.id} value={product.id}>{product.title} · {product.sku || `ID ${product.external_id}`}</option>)}</select><FieldError errors={errors} name="product_id" /></label>
+            <div className="admin-field admin-field--wide"><AdminSelect label="Produto de origem" value={form.product_id} options={productOptions} placeholder="Selecione um produto" disabled={editor !== 'new'} describedBy={errors.product_id ? 'product_id-error' : undefined} onChange={(value) => setForm({ ...form, product_id: value })} /><FieldError errors={errors} name="product_id" /></div>
             <label className="admin-field admin-field--wide"><span>Título comercial</span><input required maxLength="255" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><FieldError errors={errors} name="title" /></label>
             <label className="admin-field"><span>Preço normal</span><input required type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /><FieldError errors={errors} name="price" /></label>
             <label className="admin-field"><span>Preço promocional</span><input type="number" min="0.01" step="0.01" value={form.promotional_price} onChange={(event) => setForm({ ...form, promotional_price: event.target.value })} /><FieldError errors={errors} name="promotional_price" /></label>
@@ -95,11 +109,22 @@ export function AdminListingsPage() {
             <label className="admin-field admin-field--wide"><span>Descrição</span><textarea rows="4" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
             <div className="admin-form-actions admin-field--wide"><button className="admin-button admin-button--primary" type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Salvar anúncio'}</button><button className="admin-button admin-button--secondary" type="button" onClick={() => setEditor(null)}>Cancelar</button></div>
           </form>
-        </section>
+        </AdminModal>
+      ) : null}
+      {confirming ? (
+        <AdminConfirmModal
+          title={`${confirming.active ? 'Desativar' : 'Ativar'} anúncio`}
+          description={confirming.active ? `“${confirming.title}” deixa de aparecer na loja e não pode ser vendido. A operação é reversível.` : `“${confirming.title}” volta a aparecer na loja e pode ser vendido enquanto houver estoque.`}
+          confirmLabel={confirming.active ? 'Desativar anúncio' : 'Ativar anúncio'}
+          tone={confirming.active ? 'danger' : 'primary'}
+          busy={toggling}
+          onConfirm={() => toggle(confirming)}
+          onClose={() => setConfirming(null)}
+        />
       ) : null}
       {state.status === 'loading' && !state.data ? <AdminTableSkeleton /> : null}
       {state.status === 'error' ? <AdminResourceError error={state.error} onRetry={state.retry} /> : null}
-      {state.data ? <section className="admin-panel admin-list-panel"><div className="admin-table-wrap"><table className="admin-table" aria-label="Lista de anúncios"><thead><tr><th>Anúncio</th><th>Preço</th><th>Estoque</th><th>Status</th><th className="admin-actions-heading">Ações</th></tr></thead><tbody>{state.data.results.map((listing) => <tr key={listing.id}><td><div className="admin-product-cell">{listing.image_url ? <img src={listing.image_url} alt="" loading="lazy" /> : <span className="admin-product-cell__fallback" aria-hidden="true">M</span>}<span><strong>{listing.title}</strong><small>{listing.sku || 'Sem SKU'} · {listing.product_title}</small></span></div></td><td><strong>{formatCurrency(listing.promotional_price ?? listing.price)}</strong>{listing.promotional_price ? <small>Normal: {formatCurrency(listing.price)}</small> : null}</td><td>{listing.stock_quantity}</td><td><span className={`admin-status admin-status--${listing.active ? 'active' : 'inactive'}`}>{listing.active ? 'Ativo' : 'Inativo'}</span></td><td className="admin-actions-cell"><div className="admin-row-actions"><button className="admin-action-button admin-action-button--edit" type="button" onClick={() => openEditor(listing)} aria-label={`Editar ${listing.title}`} title="Editar"><AdminIcon name="edit" /></button><button className={`admin-action-button admin-action-button--${listing.active ? 'pause' : 'play'}`} type="button" onClick={() => setConfirming(listing)} aria-label={`${listing.active ? 'Desativar' : 'Ativar'} ${listing.title}`} title={listing.active ? 'Desativar' : 'Ativar'}><AdminIcon name={listing.active ? 'pause' : 'play'} /></button></div>{confirming?.id === listing.id ? <div className="admin-inline-confirm" role="alert"><span>Confirmar?</span><button type="button" onClick={() => toggle(listing)}>Sim</button><button type="button" onClick={() => setConfirming(null)}>Não</button></div> : null}</td></tr>)}</tbody></table></div>{!state.data.results.length ? <p className="admin-empty">Nenhum anúncio corresponde aos filtros.</p> : null}<AdminPagination page={page} count={state.data.count} onPageChange={setPage} /></section> : null}
+      {state.data ? <section className="admin-panel admin-list-panel"><div className="admin-table-wrap"><table className="admin-table" aria-label="Lista de anúncios"><thead><tr><th>Anúncio</th><th>Preço</th><th>Estoque</th><th>Status</th><th className="admin-actions-heading">Ações</th></tr></thead><tbody>{state.data.results.map((listing) => <tr key={listing.id}><td><div className="admin-product-cell">{listing.image_url ? <img src={listing.image_url} alt="" loading="lazy" /> : <span className="admin-product-cell__fallback" aria-hidden="true">M</span>}<span><strong>{listing.title}</strong><small>{listing.sku || 'Sem SKU'} · {listing.product_title}</small></span></div></td><td><strong>{formatCurrency(listing.promotional_price ?? listing.price)}</strong>{listing.promotional_price ? <small>Normal: {formatCurrency(listing.price)}</small> : null}</td><td>{listing.stock_quantity}</td><td><span className={`admin-status admin-status--${listing.active ? 'active' : 'inactive'}`}>{listing.active ? 'Ativo' : 'Inativo'}</span></td><td className="admin-actions-cell"><div className="admin-row-actions"><button className="admin-action-button admin-action-button--edit" type="button" onClick={() => openEditor(listing)} aria-label={`Editar ${listing.title}`} title="Editar"><AdminIcon name="edit" /></button><button className={`admin-action-button admin-action-button--${listing.active ? 'pause' : 'play'}`} type="button" onClick={() => setConfirming(listing)} aria-label={`${listing.active ? 'Desativar' : 'Ativar'} ${listing.title}`} title={listing.active ? 'Desativar' : 'Ativar'}><AdminIcon name={listing.active ? 'pause' : 'play'} /></button></div></td></tr>)}</tbody></table></div>{!state.data.results.length ? <p className="admin-empty">Nenhum anúncio corresponde aos filtros.</p> : null}<AdminPagination page={page} count={state.data.count} onPageChange={setPage} /></section> : null}
     </div>
   )
 }

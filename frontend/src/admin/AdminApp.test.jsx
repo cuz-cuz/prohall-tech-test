@@ -228,7 +228,9 @@ describe('Mosaico Admin', () => {
     const listingsTable = await screen.findByRole('table', { name: /lista de anúncios/i })
     expect(within(listingsTable).getByRole('button', { name: /editar escova modeladora/i }).querySelector('svg')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /novo anúncio/i }))
-    fireEvent.change(screen.getByLabelText(/produto de origem/i), { target: { value: '1' } })
+    const editor = await screen.findByRole('dialog', { name: /novo anúncio/i })
+    fireEvent.click(within(editor).getByRole('combobox', { name: /produto de origem/i }))
+    fireEvent.click(within(editor).getByRole('option', { name: /escova modeladora/i }))
     fireEvent.change(screen.getByLabelText(/título comercial/i), { target: { value: 'Oferta especial' } })
     fireEvent.change(screen.getByLabelText(/preço normal/i), { target: { value: '150.00' } })
     fireEvent.change(screen.getByLabelText(/preço promocional/i), { target: { value: '120.00' } })
@@ -290,5 +292,68 @@ describe('Mosaico Admin', () => {
     expect(payload).toMatchObject({ title: 'Lançamentos', image_url: 'https://example.com/lancamentos.jpg', link_url: '/produtos' })
     expect(payload.starts_at).toContain('2026-10-02')
     expect(payload.ends_at).toContain('2026-10-03')
+  })
+
+  it('filters with the keyboard through the custom dropdown', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/anuncios']}><App /></MemoryRouter>)
+
+    await screen.findByRole('table', { name: /lista de anúncios/i })
+    const trigger = screen.getByRole('combobox', { name: /status/i })
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    // Opening lands on the current value, so two more steps reach "Inativos".
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveTextContent('Inativos')
+
+    fireEvent.click(screen.getByRole('button', { name: /aplicar filtros/i }))
+    await waitFor(() => expect(
+      fetch.mock.calls.some(([url]) => url.includes('/admin/listings/') && url.includes('active=false')),
+    ).toBe(true))
+  })
+
+  it('closes the dropdown on Escape without changing the value', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/anuncios']}><App /></MemoryRouter>)
+
+    await screen.findByRole('table', { name: /lista de anúncios/i })
+    const trigger = screen.getByRole('combobox', { name: /status/i })
+
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    fireEvent.keyDown(trigger, { key: 'Escape' })
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(trigger).toHaveTextContent('Todos')
+  })
+
+  it('asks for confirmation in a modal before deactivating a listing', async () => {
+    mockAdminApi()
+    render(<MemoryRouter initialEntries={['/admin/anuncios']}><App /></MemoryRouter>)
+
+    const table = await screen.findByRole('table', { name: /lista de anúncios/i })
+    fireEvent.click(within(table).getByRole('button', { name: /desativar escova modeladora/i }))
+
+    const dialog = await screen.findByRole('dialog', { name: /desativar anúncio/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+
+    // Closing must not have sent anything.
+    fireEvent.click(within(dialog).getByRole('button', { name: /cancelar/i }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(fetch.mock.calls.some(([, options]) => options?.method === 'PATCH')).toBe(false)
+
+    fireEvent.click(within(table).getByRole('button', { name: /desativar escova modeladora/i }))
+    const reopened = await screen.findByRole('dialog', { name: /desativar anúncio/i })
+    fireEvent.click(within(reopened).getByRole('button', { name: /desativar anúncio/i }))
+
+    await screen.findByText(/anúncio desativado/i)
+    const call = fetch.mock.calls.find(([url, options]) => url.includes('/admin/listings/') && options?.method === 'PATCH')
+    expect(JSON.parse(call[1].body)).toEqual({ active: false })
   })
 })

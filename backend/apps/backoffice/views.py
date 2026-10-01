@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Banner, ImportedProduct, Listing, Menu, MenuListing
+from apps.catalog.niche import NICHE_CATEGORIES
 from apps.catalog.services.dummyjson import DummyJSONError
 from apps.catalog.services.importer import ProductImportError, sync_products
 from apps.customers.models import Customer
@@ -300,6 +301,8 @@ class AdminProductImportView(StaffAPIViewMixin, APIView):
                 "created": summary.created,
                 "updated": summary.updated,
                 "total": summary.total,
+                "skipped": summary.skipped,
+                "categories": sorted(NICHE_CATEGORIES),
                 "completed_at": timezone.now(),
             }
         )

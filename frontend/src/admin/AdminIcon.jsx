@@ -14,6 +14,9 @@ const icons = {
   logout: <><path d="M10 17l5-5-5-5M15 12H3" /><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5" /></>,
   alert: <><path d="M12 3 2 21h20L12 3Z" /><path d="M12 9v5M12 18h.01" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  chevron: <path d="m6 9 6 6 6-6" />,
+  check: <path d="m5 13 4 4 10-10" />,
+  close: <path d="M6 6l12 12M18 6 6 18" />,
 }
 
 export function AdminIcon({ name }) {

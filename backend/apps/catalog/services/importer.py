@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from typing import Any
+from typing import Any, Iterable
 
 from django.db import transaction
 from django.utils import timezone
 
 from apps.catalog.models import ImportedProduct
+from apps.catalog.niche import NICHE_CATEGORIES
 
 from .dummyjson import DummyJSONClient
 
@@ -21,6 +22,7 @@ class ProductImportError(ValueError):
 class ImportSummary:
     created: int
     updated: int
+    skipped: int = 0
 
     @property
     def total(self) -> int:
@@ -80,17 +82,35 @@ def normalize_product(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def sync_products(*, client: DummyJSONClient | None = None) -> ImportSummary:
+def sync_products(
+    *,
+    client: DummyJSONClient | None = None,
+    categories: Iterable[str] | None = NICHE_CATEGORIES,
+) -> ImportSummary:
+    """Import the store's categories, or the whole source when categories is None."""
+
+    selected = None if categories is None else frozenset(categories)
     owns_client = client is None
     importer_client = client or DummyJSONClient()
 
     try:
-        payloads = importer_client.fetch_all_products()
+        if selected is None:
+            payloads = importer_client.fetch_all_products()
+        else:
+            payloads = importer_client.fetch_products_in_categories(sorted(selected))
     finally:
         if owns_client:
             importer_client.close()
 
     normalized_products = [normalize_product(payload) for payload in payloads]
+    skipped_count = 0
+    if selected is not None:
+        # The category endpoints already narrow the request. Filtering again
+        # keeps the niche guarantee local, whatever the source returns.
+        kept = [item for item in normalized_products if item["category"] in selected]
+        skipped_count = len(normalized_products) - len(kept)
+        normalized_products = kept
+
     synced_at = timezone.now()
     created_count = 0
     updated_count = 0
@@ -109,7 +129,11 @@ def sync_products(*, client: DummyJSONClient | None = None) -> ImportSummary:
             else:
                 updated_count += 1
 
-    return ImportSummary(created=created_count, updated=updated_count)
+    return ImportSummary(
+        created=created_count,
+        updated=updated_count,
+        skipped=skipped_count,
+    )
 
 
 def _text(
