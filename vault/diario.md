@@ -1004,3 +1004,14 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - a primeira versão casava a tradução "red" com "inspired"; termos traduzidos passaram a exigir início de palavra, com teste de regressão;
 - usuário de teste do painel `admin` / `Admin@123` documentado no README, em `backend/.env.example` e no `docker-compose.yml`, como pede o enunciado;
 - 118 testes backend e 57 testes frontend aprovados; lint e build aprovados; sugestões conferidas em 390 px com Chrome headless.
+
+## 1º de outubro de 2026 — Fechamento da entrega
+
+- ícone da aba criado a partir da marca (SVG, ICO de reserva e ícone para tela inicial do celular);
+- `docker compose up --build` passou a criar a loja do zero: o novo comando `bootstrap_demo` importa produtos, prepara a vitrine e cria `admin` / `Admin@123` somente em banco vazio, para não sobrescrever edições do painel a cada reinício;
+- validado num PostgreSQL recém-criado: 45 anúncios, 8 menus, 3 banners e login válido; a segunda execução não alterou nada;
+- README ganhou início rápido em um comando, modelagem do banco com diagrama, resumo das decisões, testes executados, uso da IA e o que ficou faltando;
+- a seção de IA foi conferida contra o diário: as ferramentas registradas são GPT-5.6 Sol e Claude Code;
+- auditoria de requisitos reescrita com o estado final;
+- 120 testes backend e 57 frontend aprovados; lint e build aprovados;
+- nove conversas (sete do Codex, duas do Claude Code) exportadas de `~/.codex` e `~/.claude` para `vault/conversas/`, só com o diálogo, sem segredos nem e-mails pessoais, verificadas por varredura antes do commit.

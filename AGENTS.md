@@ -81,6 +81,7 @@ Não trocar a stack nem introduzir outro framework sem registrar a decisão em `
 .\.venv\Scripts\python.exe .\backend\manage.py test apps.storefront
 .\.venv\Scripts\python.exe .\backend\manage.py import_products
 .\.venv\Scripts\python.exe .\backend\manage.py seed_demo
+.\.venv\Scripts\python.exe .\backend\manage.py bootstrap_demo
 .\.venv\Scripts\python.exe .\backend\manage.py runserver
 ```
 
@@ -104,7 +105,7 @@ npm run dev
 docker compose up --build
 ```
 
-O Compose foi preparado, mas deve ser validado em uma máquina com Docker. Não documentar comandos adicionais como validados antes de executá-los.
+O Compose aplica as migrations e executa `bootstrap_demo`, que importa produtos, prepara a vitrine e cria o administrador de teste `admin` / `Admin@123` somente quando o banco não tem anúncios. Esse é o setup do zero exigido pelo enunciado e roda a cada `docker compose up`: não o faça sobrescrever dados existentes. Não documentar comandos adicionais como validados antes de executá-los.
 
 ## Definição de conclusão de uma tarefa
 

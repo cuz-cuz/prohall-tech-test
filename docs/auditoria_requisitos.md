@@ -1,81 +1,74 @@
 # Auditoria dos requisitos do desafio Prohall
 
-Revisão realizada em 30 de setembro de 2026, comparando o enunciado com o código, os testes, a documentação, o banco local e o repositório remoto.
+Revisão final realizada em 1º de outubro de 2026, comparando o enunciado com o código, os testes, a documentação, o ambiente publicado e o repositório remoto. A primeira versão desta auditoria, de 30 de setembro, está no histórico do Git.
 
 Legenda:
 
 - **Concluído:** comportamento implementado e com evidência verificável;
-- **Parcial:** existe uma solução funcional, mas falta parte exigida para a entrega;
+- **Parcial:** existe uma solução funcional, com limitação documentada;
 - **Pendente:** ainda precisa ser implementado ou executado.
 
 ## Resultado executivo
 
-O núcleo da loja está funcional: importação idempotente, catálogo, busca, carrinho persistente, checkout transacional, pagamento simulado, conta automática e histórico de pedidos. O painel React possui autenticação staff, dashboard, consultas e operação comercial de anúncios, menus, banners e importação. O responsável encerrou a Fase 13 e avançou para a preparação do deploy, mantendo o encaixe visual da prévia do banner como pendência não bloqueante.
+Todos os requisitos obrigatórios estão implementados, testados e publicados. A loja está no ar em <https://mosaico-alpha.vercel.app>, com o painel em `/admin` (usuário `admin` / `Admin@123`). `docker compose up --build` cria o banco do zero já populado e com o usuário de teste. O README traz modelagem, decisões, testes, uso da IA e limitações.
 
-A entrega ainda não está pronta. O código está sendo preparado para Railway e Vercel, mas faltam autenticação nas plataformas, serviços públicos, SMTP, seeds remotos, URLs e smoke test. As alterações locais também ainda precisam ser revisadas e publicadas no Git.
+Limitações conhecidas, documentadas no README: sem provedor SMTP em produção, o código de acesso posterior aos pedidos não é enviado no ambiente publicado; as imagens dos banners usam a URL provisória `r2.dev`.
 
 ## Matriz de conformidade
 
 | Área | Estado | Evidência e pendência |
 | --- | --- | --- |
-| Nome e identidade própria | Concluído | A loja se chama **Mosaico**, possui tokens visuais, documentação de design e interface responsiva própria. |
-| Importação DummyJSON | Concluído | O comando `import_products` percorre a paginação, usa o identificador externo como chave e pode ser repetido sem duplicar ou sobrescrever anúncios. |
+| Nome e identidade própria | Concluído | A loja se chama **Mosaico**, com tokens visuais, ícone de aba, documentação de design e interface responsiva própria. |
+| Importação DummyJSON | Concluído | `import_products` percorre a paginação por categoria do nicho, usa o identificador externo como chave e pode ser repetido sem duplicar ou sobrescrever anúncios. |
 | Persistência no banco | Concluído | Produtos importados e anúncios comerciais são entidades separadas em PostgreSQL. |
-| ADMIN com login | Concluído no código | O painel React em `/admin` possui login por sessão Django, CSRF, proteção staff, dashboard, consultas e operações comerciais. A aprovação manual completa pertence à Fase 13; o Django Admin segue como contingência. |
-| Usuário de teste no README | Pendente | O README informa o usuário padrão e explica variáveis, mas não fornece uma credencial completa e imediatamente utilizável pelo avaliador. |
-| Produtos importados no ADMIN | Concluído | A listagem somente leitura, pesquisável, filtrável e paginada está disponível no painel React. |
-| Anúncios no ADMIN | Concluído | O painel React cria, edita, ativa e desativa anúncios, com validações de preço, promoção e estoque vinculadas aos campos. |
-| Menus no ADMIN | Concluído | Nome, ordem, status e associação ordenada de anúncios são administráveis no painel React. |
-| Banners no ADMIN | Concluído | Imagem por URL ou upload protegido ao Cloudflare R2, link, texto alternativo, ordem única, status e período são administráveis no painel React. |
-| Pedidos no ADMIN | Concluído | Pedidos são consultáveis como dados somente leitura no painel React e no Django Admin; snapshots detalhados permanecem preservados no banco. |
-| Importação pelo painel | Concluído | A reimportação idempotente pode ser confirmada e executada no painel, que exibe novos, atualizados, total e horário de conclusão. |
-| Home, menus e banners | Concluído | A Home consome a configuração persistida no backend e possui navegação de banners por gesto e setas. |
-| Listagem e detalhe | Concluído | Catálogo geral, menus, paginação, filtros, ordenação, galeria e página de produto estão implementados. |
+| ADMIN com login | Concluído | Painel React em `/admin` com login por sessão Django, CSRF e proteção staff; o Django Admin segue como contingência. |
+| Usuário de teste no README | Concluído | `admin` / `Admin@123` no README, em `.env.example` e no Compose; criado por `bootstrap_demo` e conferido com login real em produção. |
+| Produtos importados no ADMIN | Concluído | Listagem somente leitura, pesquisável, filtrável e paginada. |
+| Anúncios no ADMIN | Concluído | Cria, edita, ativa e desativa anúncios, com validações de preço, promoção e estoque. |
+| Menus no ADMIN | Concluído | Nome, ordem, status e associação ordenada de anúncios. |
+| Banners no ADMIN | Concluído | Imagem por URL ou upload ao Cloudflare R2, link, texto alternativo, ordem única, status e período. |
+| Pedidos no ADMIN | Concluído | Pedidos somente leitura com status, forma de pagamento e total. |
+| Home, menus e banners | Concluído | Home configurada pelo backend; banners inteiros, sem corte, navegáveis por gesto e setas. |
+| Listagem e detalhe | Concluído | Catálogo, menus, paginação, filtros e ordenação em modal, galeria e página de produto aberta no topo. |
 | Promoções | Concluído | Preço anterior, preço vigente e percentual de desconto aparecem claramente. |
-| Busca obrigatória | Concluído | Busca por título, descrição, marca, categoria e menu; ignora caixa e acentos, aceita termos incompletos, ordena por relevância, sugere produtos enquanto o cliente digita (com debounce e cancelamento de requisições anteriores) e abre os resultados pela lupa; buscas em português encontram produtos em inglês por um dicionário do nicho. |
-| Carrinho | Concluído | Adiciona, altera quantidade, remove, respeita limites e persiste em `localStorage`. |
-| Checkout e pagamento | Concluído | O backend recalcula valores, bloqueia estoque e aplica a regra `0000` recusado; qualquer outro final de quatro dígitos é aprovado. |
+| Busca obrigatória | Concluído | Título, descrição, marca, categoria e menu; ignora caixa e acentos, aceita termos incompletos, ordena por relevância, sugere produtos enquanto o cliente digita e abre os resultados pela lupa. |
+| Busca semântica (diferencial) | Parcial | Consultas em português encontram produtos em inglês por um dicionário do nicho; frases fora do vocabulário seguem a busca textual. |
+| Carrinho | Concluído | Adiciona, altera quantidade, remove, respeita limites, persiste em `localStorage` e mostra o resumo com descontos e frete. |
+| Checkout e pagamento | Concluído | O backend recalcula valores e bloqueia estoque; cartão final `0000` é recusado e qualquer outro aprovado; Pix simulado com desconto, pago ou expirado. |
 | Conta automática | Concluído | Nome e e-mail criam ou recuperam o cliente no checkout e estabelecem sessão segura. |
-| Meus pedidos | Concluído | Exibe pedidos, itens, quantidades, snapshots, valores, status e data em `America/Sao_Paulo`; consultas são limitadas ao cliente da sessão. |
-| Retorno do cliente | Concluído | Acesso posterior usa código temporário de uso único, armazenado com hash e enviado por e-mail. |
-| Dinheiro exato | Concluído | Cálculos de autoridade usam `Decimal`/`DecimalField` no backend e constraints no banco. |
-| Estoque e concorrência | Concluído | Checkout usa transação e `select_for_update`; teste PostgreSQL cobre disputa pela última unidade. |
-| Snapshots de pedido | Concluído | `OrderItem` guarda título, SKU, preço, quantidade, subtotal e imagem da compra. |
-| Estados de interface | Concluído no código | Existem estados de carregamento, vazio, erro, indisponibilidade e conflito de checkout. |
-| Responsividade mobile | Parcial | O CSS é mobile-first e possui testes de comportamento; o responsável avançou de fase, mantendo como pendência visual não bloqueante a prévia do banner. |
-| Migrations | Concluído | As migrations existentes estão versionadas, a Fase 11 não alterou modelos e `makemigrations --check --dry-run` permanece limpo. |
-| Setup em um comando | Parcial | `docker compose up --build` cria o banco e aplica migrations. Superusuários podem restaurar todo o cenário comercial pelo painel, mas o primeiro bootstrap ainda não importa produtos nem garante a credencial de teste automaticamente. |
-| Modelagem no README | Pendente | A modelagem detalhada existe no plano, mas o README ainda não apresenta o diagrama ou a lista de tabelas exigida. |
-| Decisões e trade-offs no README | Pendente | As decisões existem em `/vault/decisoes`, mas precisam ser resumidas no README final. |
-| Testes documentados no README | Parcial | Os comandos e alguns cenários estão documentados; faltam resultados atuais e a matriz final de cobertura. |
-| Limitações e próximos passos no README | Pendente | Ainda não existe uma seção final explícita. |
-| Uso e revisão da IA no README | Pendente | `AGENTS.md`, diário e erros existem, mas o README ainda não explica onde a IA ajudou, onde errou e como foi conferida. |
+| Meus pedidos | Concluído | Pedidos, itens, snapshots, descontos, frete, forma de pagamento e data em `America/Sao_Paulo`, limitados ao cliente da sessão. |
+| Retorno do cliente | Parcial | Código temporário de uso único, com hash e expiração, funciona localmente; em produção depende de configurar SMTP. |
+| Dinheiro exato | Concluído | `Decimal`/`DecimalField` no backend e constraints no banco, inclusive para a composição do total com Pix e frete. |
+| Estoque e concorrência | Concluído | Transação e `select_for_update`; teste PostgreSQL cobre a disputa pela última unidade. |
+| Snapshots de pedido | Concluído | `OrderItem` guarda título, SKU, preço, quantidade, subtotal e imagem; o pedido guarda descontos e frete da compra. |
+| Estados de interface | Concluído | Carregamento, vazio, erro, indisponibilidade, sugestões sem resultado e conflito de checkout. |
+| Responsividade mobile | Concluído | Telas conferidas em 390 px: banners, filtros em folha inferior, busca com sugestões, checkout por cartão e Pix. |
+| Migrations | Concluído | Versionadas e `makemigrations --check --dry-run` limpo. |
+| Setup em um comando | Concluído | `docker compose up --build` aplica migrations e executa `bootstrap_demo`, que importa produtos, prepara a vitrine e cria o administrador num banco vazio; validado num PostgreSQL recém-criado. |
+| Modelagem no README | Concluído | Diagrama e tabela com papel e garantias de cada tabela. |
+| Decisões e trade-offs no README | Concluído | Resumo no README com links para `vault/decisoes`. |
+| Testes documentados no README | Concluído | Comandos, cobertura automatizada, verificação manual e smoke tests de produção. |
+| Limitações e próximos passos no README | Concluído | Seção "O que ficou faltando". |
+| Uso e revisão da IA no README | Concluído | Seção "Como a IA foi usada", com acertos e erros, ligada a `vault/erros-da-ia.md`. |
 | Regras para IA | Concluído | `AGENTS.md` registra arquitetura, comandos, regras críticas e prevenção de recorrências. |
-| Vault | Concluído, requer fechamento | Há decisões, diário, erros e registro de conversas; a fase de entrega deve atualizar o resumo final. |
-| `.env.example` e segredos | Concluído | Exemplos existem para backend e frontend; arquivos `.env` são ignorados e a revisão da Fase 10 não encontrou segredos no histórico. |
-| Repositório público | Concluído | `https://github.com/cuz-cuz/prohall-tech-test` está público e usa `main`. |
-| Histórico incremental | Parcial | Existem oito commits progressivos, mas 56 entradas do trabalho atual estão modificadas ou não rastreadas e ainda não chegaram ao remoto. |
-| Deploy | Em andamento | Configuração de contêiner, proxy `/api`, fallback da SPA, cookies e integração R2 foram preparados; Railway, PostgreSQL, Vercel, Cloudflare, SMTP, URLs públicas, seeds e smoke test ainda dependem de autenticação externa. |
-| Screenshots e vídeo | Pendente/opcional | Screenshots finais planejados ainda não existem; o vídeo de até cinco minutos é opcional. |
+| Vault | Concluído | Decisões, diário, erros e as nove conversas com Codex e Claude Code exportadas sem segredos em `vault/conversas/`. |
+| `.env.example` e segredos | Concluído | Exemplos para backend e frontend; `.env` ignorado; varredura do histórico sem chaves. A única credencial versionada é a de teste pública pedida pelo enunciado. |
+| Repositório público | Concluído | <https://github.com/cuz-cuz/prohall-tech-test>, branch `main`. |
+| Histórico incremental | Concluído | Commits progressivos ao longo do desenvolvimento. |
+| Deploy | Concluído | Railway (API e PostgreSQL), Vercel (frontend com proxy `/api`) e Cloudflare R2 (mídias); healthcheck, login, busca e upload conferidos em produção. |
+| Vídeo | Opcional | Não produzido. |
 
 ## Verificações executadas nesta auditoria
 
-- `python manage.py check`: aprovado;
-- `python manage.py makemigrations --check --dry-run`: nenhuma alteração de modelo pendente;
-- suíte backend: 66 testes aprovados;
-- suíte frontend: 24 testes aprovados;
-- lint frontend: aprovado;
-- build de produção do frontend: aprovado;
-- PostgreSQL, backend e frontend ativos no Docker;
-- usuário administrativo local `admin` ativo e `is_superuser`;
-- repositório GitHub confirmado como público;
-- nenhuma migration nova precisa ser criada, mas migrations existentes ainda precisam entrar em commit.
+- suíte backend: 120 testes aprovados;
+- suíte frontend: 57 testes aprovados;
+- lint e build de produção do frontend: aprovados;
+- `makemigrations --check --dry-run`: nenhuma alteração pendente;
+- `migrate` seguido de `bootstrap_demo` num PostgreSQL vazio: 45 anúncios, 8 menus, 3 banners e login `admin` / `Admin@123` válido; segunda execução sem alterações;
+- produção: healthcheck 200 pelo Railway e pelo proxy da Vercel, login administrativo, buscas em português e upload real ao R2;
+- repositório GitHub confirmado como público.
 
-## Ordem recomendada para concluir
+## Pendências para a entrega
 
-1. **Publicar as mudanças finais:** revisar migrations, documentação, arquivos rastreados e ausência de segredos antes do push.
-2. **Fase 14 — Deploy:** autenticar Railway e Vercel, provisionar PostgreSQL e SMTP, configurar variáveis, executar seeds e smoke test público.
-3. **Fase 15 — Documentação e entrega:** README completo, modelagem, decisões, IA, limitações, URLs, screenshots e revisão final de segredos.
-4. **Validação manual:** executar e registrar o fluxo completo em celular e desktop antes da entrega.
-
-O vídeo continua opcional. Busca semântica e outras extensões P2 devem esperar até todas as pendências obrigatórias acima serem encerradas.
+1. Revogar o token do Cloudflare R2 que apareceu em texto puro numa sessão e cadastrar um novo no Railway.
+2. Opcional: configurar SMTP em produção, domínio próprio para as mídias e gravar o vídeo.

@@ -2,7 +2,7 @@
 
 Loja virtual desenvolvida para o desafio técnico da Prohall. O projeto usa React no frontend, Django REST Framework no backend e PostgreSQL como banco de dados.
 
-> Estado atual: loja publicada no Railway (API e PostgreSQL), na Vercel (frontend) e no Cloudflare R2 (imagens de banners).
+> Estado atual: loja completa e publicada no Railway (API e PostgreSQL), na Vercel (frontend) e no Cloudflare R2 (imagens de banners).
 
 ## Acesso para avaliação
 
@@ -17,6 +17,21 @@ Usuário de teste do painel:
 - **Senha:** `Admin@123`
 
 O mesmo usuário é criado localmente pelo `seed_demo` (ver abaixo). Ele é superusuário e pode usar **Configurações → Restaurar demonstração** para devolver a loja ao estado inicial depois dos testes. O pagamento é simulado: use o final `4242` para aprovar e `0000` para recusar no cartão, ou escolha Pix e simule o pagamento confirmado ou expirado.
+
+## Início rápido: um comando
+
+Com Docker instalado, na raiz do repositório:
+
+```bash
+docker compose up --build
+```
+
+Na primeira execução o Compose cria o PostgreSQL do zero, aplica as migrations, importa os produtos do DummyJSON (requer internet), prepara anúncios, menus e banners e cria o usuário de teste `admin` / `Admin@123`. Depois abra:
+
+- loja: <http://localhost:5173>;
+- painel administrativo: <http://localhost:5173/admin>.
+
+As execuções seguintes encontram a loja já populada e não sobrescrevem o que foi alterado no painel (`bootstrap_demo` só age em banco vazio). Para recomeçar do zero, use `docker compose down -v`.
 
 ## Requisitos
 
@@ -56,7 +71,7 @@ O comando lê somente as categorias do nicho feminino da loja, definidas em `bac
 
 ### Vitrine e administrador de demonstração
 
-Depois da importação, prepare anúncios, menus e banners idempotentes com:
+Para importar e preparar tudo de uma vez num banco vazio, use `.\.venv\Scripts\python.exe .\backend\manage.py bootstrap_demo`. Os passos equivalentes, separados, são a importação acima e, depois dela, a preparação idempotente de anúncios, menus e banners:
 
 ```powershell
 .\.venv\Scripts\python.exe .\backend\manage.py seed_demo
@@ -157,7 +172,7 @@ O roteiro completo de Railway, PostgreSQL, Vercel, SMTP, seeds e smoke test est�
 docker compose up --build
 ```
 
-O Compose foi validado no Docker Desktop com WSL 2. Ele inicia PostgreSQL 18, aplica as migrations, publica a API em `localhost:8000` e o frontend em `localhost:5173`.
+O Compose foi validado no Docker Desktop com WSL 2 antes da etapa de bootstrap; o `bootstrap_demo` foi validado com os mesmos comandos num PostgreSQL vazio fora do Docker. Ele inicia PostgreSQL 18, aplica as migrations, executa `bootstrap_demo` (importação, vitrine e administrador de teste quando o banco está vazio), publica a API em `localhost:8000` e o frontend em `localhost:5173`. Veja o [início rápido](#início-rápido-um-comando).
 
 ## Testes e verificações
 
@@ -170,6 +185,83 @@ npm run build
 ```
 
 A suíte backend inclui dois checkouts concorrentes disputando a última unidade no PostgreSQL. A revisão de segurança também usa `python manage.py check --deploy`, `pip check`, `npm audit --omit=dev` e uma varredura de padrões de segredo no workspace e no histórico Git.
+
+### O que foi testado e como
+
+- **Automatizado (120 testes backend, 57 frontend):** regras de dinheiro em `Decimal` e totais exatos ao centavo; preço promocional sempre menor que o normal e cobrado no momento da compra; cartão final `0000` e Pix expirado recusados sem consumir estoque; idempotência do checkout; concorrência pela última unidade; snapshots do pedido que sobrevivem a mudanças e exclusão do anúncio; constraints do banco para total, descontos e forma de pagamento; busca por título, descrição, marca, categoria e menu, sem acentos, parcial, ranqueada e em português; isolamento dos pedidos por cliente e código de acesso de uso único; permissões do painel; importação atômica e restrita ao nicho; restauração da demonstração; fluxos React de vitrine, filtros, busca, carrinho, checkout por cartão e Pix.
+- **Manual no navegador:** telas em 390 px (celular) e 1280 px com Chrome headless: banners inteiros, modal de filtros, sugestões da busca, abertura de páginas no topo, checkout por cartão e Pix e resumo com descontos e frete.
+- **Produção:** healthcheck, proxy da API pela Vercel, login `admin` / `Admin@123`, upload real de banner para o Cloudflare R2 e buscas em português conferidos depois de cada deploy.
+- **Setup do zero:** `migrate` seguido de `bootstrap_demo` num PostgreSQL vazio criou 45 anúncios, 8 menus, 3 banners e o administrador com login válido; repetir o comando não alterou nada.
+
+## Modelagem do banco
+
+```mermaid
+erDiagram
+    ImportedProduct ||--o{ Listing : "origina"
+    Listing ||--o{ MenuListing : ""
+    Menu ||--o{ MenuListing : ""
+    Customer ||--o{ Order : "faz"
+    Customer ||--o{ CustomerAccessCode : "recebe"
+    Order ||--|{ OrderItem : "contém"
+    Listing |o--o{ OrderItem : "referência opcional"
+```
+
+| Tabela | Papel | Garantias principais |
+|---|---|---|
+| `catalog_importedproduct` | Cópia normalizada do DummyJSON (título, categoria, marca, preço e estoque de origem, imagens, payload bruto). Nunca é vendida diretamente. | `external_id` único; preço ≥ 0; desconto de origem entre 0 e 100. |
+| `catalog_listing` | Anúncio comercial criado a partir de um produto: título, descrição, preço, promocional opcional, estoque, ativo, destaque de frete grátis. | preço > 0; promocional > 0 e menor que o preço. |
+| `catalog_menu` / `catalog_menulisting` | Menus da loja e quais anúncios aparecem em cada um, com ordem. | par menu-anúncio único. |
+| `catalog_banner` | Banners da home: imagem, link, ordem, ativo e período opcional. | ordem única; fim depois do início. |
+| `customers_customer` | Conta do cliente, criada no primeiro checkout e identificada pelo e-mail normalizado. Sem senha. | e-mail único. |
+| `customers_customeraccesscode` | Código temporário para acessar os pedidos em outro navegador; guarda só o hash. | expira em 10 min, uso único, até 5 tentativas. |
+| `orders_order` | Pedido: cliente, nome do comprador na compra, status, forma de pagamento (cartão ou Pix), subtotal, descontos de promoção e Pix, frete cobrado e economizado, total, final do cartão fictício, chave de idempotência. | `total = subtotal − desconto Pix + frete`; valores não negativos; cartão exige 4 dígitos e Pix não guarda dígitos; desconto Pix só em Pix; chave de idempotência única. |
+| `orders_orderitem` | Snapshot do item comprado: título, SKU, preço unitário, quantidade, subtotal e imagem no momento da compra. O vínculo com o anúncio é opcional (`SET NULL`). | preço e quantidade > 0; subtotal = preço × quantidade. |
+| `core_storesettings` | Configuração única da loja: mínimo de frete grátis, editável no painel. | linha única; mínimo > 0. |
+| `core_demoresetstate` | Trava e histórico da restauração da demonstração. | linha única. |
+
+Os usuários do painel são os usuários do Django (`auth_user`) com `is_staff`. Todo valor em dinheiro é `DECIMAL(12,2)` e calculado com `Decimal`; datas são gravadas em UTC e exibidas no horário de Brasília.
+
+## Principais decisões
+
+Cada decisão tem uma nota com contexto, alternativas e consequências em [`vault/decisoes/`](vault/decisoes). As mais importantes:
+
+- **Produto importado separado do anúncio:** a sincronização com o DummyJSON nunca altera preço, estoque ou texto comercial definidos no painel.
+- **Pedido como snapshot:** cada item guarda título, preço e imagem da compra, então o pedido continua exato mesmo se o anúncio mudar ou for removido.
+- **Checkout transacional no servidor:** preços recalculados no backend com `Decimal`, estoque bloqueado com `select_for_update` em ordem estável, chave de idempotência contra cliques duplos e recusa sem tocar no estoque.
+- **Cliente sem senha:** a conta nasce no checkout pelo e-mail; o acesso posterior usa código temporário, evitando cadastro e senha num fluxo de compra simulado.
+- **Busca no PostgreSQL:** `unaccent` e `pg_trgm` com pesos por campo, mais um dicionário PT→EN do nicho para buscar em português num catálogo em inglês, sem custo de IA por consulta.
+- **Loja de nicho:** só categorias femininas são importadas, definidas num único arquivo (`apps/catalog/niche.py`).
+- **Painel React próprio** em vez do Django Admin, que ficou apenas como contingência.
+- **Pix e frete simulados:** o Pix aplica o desconto anunciado e o frete fixo é dispensado acima do mínimo; o banco garante que o total bate com essa composição.
+- **Deploy com proxy:** a Vercel encaminha `/api` ao Railway para manter sessão e CSRF como cookies de primeira parte; mídias no Cloudflare R2 com upload pelo backend.
+
+## Como a IA foi usada
+
+O projeto foi desenvolvido com agentes de código de IA, o Codex com GPT-5.6 Sol (nível de raciocínio escolhido por fase, registrado no diário) e o Claude Code, guiados pelo [`AGENTS.md`](AGENTS.md), que concentra regras de execução, padrões de código e limites que a IA não pode ultrapassar. O [`vault/`](vault) registra o diário, as decisões e as [conversas exportadas e sanitizadas](vault/conversas/README.md).
+
+**Onde ajudou:** planejamento por fases a partir do enunciado; implementação de backend, frontend e testes; investigação de falhas de deploy (proxy da Vercel e healthcheck do Railway); revisões de segurança e de requisitos; verificação visual das telas em largura de celular.
+
+**Onde errou** (registro completo, com como foi percebido e corrigido, em [`vault/erros-da-ia.md`](vault/erros-da-ia.md)):
+
+- começou planejando o desafio errado (um quiz capilar) antes de ler o enunciado real;
+- o rewrite `/api/:path*` da Vercel não casava as rotas com barra final do Django, e toda a API devolvia o HTML do React com status 200;
+- o healthcheck do Railway falhava porque o redirecionamento HTTPS respondia 301 à chamada interna;
+- a tradução "red" da busca casava com "inspired", trazendo um brinco para "batom vermelho";
+- limiar trigramático baixo demais trazia resultados irrelevantes para buscas curtas;
+- uma constraint foi inserida no modelo errado e um diagnóstico foi afirmado sem ler o trecho decisivo do código;
+- vários comandos usaram sintaxe de Bash no PowerShell ou variáveis reservadas.
+
+Cada erro relevante virou regra no `AGENTS.md` ou teste automatizado para não se repetir.
+
+## O que ficou faltando
+
+- **E-mail em produção:** sem um provedor SMTP configurado, o código de acesso aos pedidos não é enviado no ambiente publicado; o pedido feito no navegador continua visível pela sessão. Localmente o código aparece na resposta (`DEBUG=True`).
+- **Domínio próprio para mídias:** as imagens dos banners usam a URL `r2.dev` do Cloudflare, que tem limite de taxa; com um domínio basta trocar `R2_PUBLIC_BASE_URL`.
+- **Busca semântica de verdade:** o dicionário PT→EN cobre o vocabulário do nicho; com mais tempo, embeddings permitiriam entender frases livres e sinônimos fora da lista.
+- **Frete real:** o frete é um valor fixo simulado; uma versão real calcularia por CEP e peso.
+- **Pagamento real e estados intermediários:** Pix e cartão são simulados e aprovam ou recusam na hora; não há pedido "aguardando pagamento".
+- **Limpeza de imagens órfãs no R2** e edição do valor do frete pelo painel.
+- **Vídeo de apresentação** (opcional no desafio).
 
 ## Documentação
 
