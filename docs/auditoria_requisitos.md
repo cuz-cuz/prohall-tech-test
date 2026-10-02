@@ -70,5 +70,6 @@ Limitações conhecidas, documentadas no README: sem provedor SMTP em produção
 
 ## Pendências para a entrega
 
-1. Revogar o token do Cloudflare R2 que apareceu em texto puro numa sessão e cadastrar um novo no Railway.
-2. Opcional: configurar SMTP em produção, domínio próprio para as mídias e gravar o vídeo.
+Nenhuma pendência obrigatória. O token do Cloudflare R2 que apareceu em texto puro numa sessão foi revogado e substituído; um upload real de banner em produção confirmou as chaves novas.
+
+Opcional: configurar SMTP em produção, domínio próprio para as mídias e gravar o vídeo.

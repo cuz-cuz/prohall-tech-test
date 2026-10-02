@@ -9,7 +9,7 @@ Exportações das sessões usadas no desenvolvimento, geradas a partir dos hist�
 - chaves, tokens, senhas, credenciais em URLs e e-mails pessoais foram substituídos por `[REDACTED]` ou `[e-mail removido]`, e os arquivos foram verificados por varredura de segredos antes do commit;
 - horários no fuso de Brasília.
 
-As chaves do Cloudflare R2 chegaram a aparecer em texto puro numa sessão do Claude Code (um comando digitado no terminal); elas foram removidas da exportação e o token deve ser revogado.
+As chaves do Cloudflare R2 chegaram a aparecer em texto puro numa sessão do Claude Code (um comando digitado no terminal); elas foram removidas da exportação, e o token foi revogado e substituído no mesmo dia.
 
 ## Índice
 

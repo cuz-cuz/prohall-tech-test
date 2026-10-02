@@ -1015,3 +1015,4 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - auditoria de requisitos reescrita com o estado final;
 - 120 testes backend e 57 frontend aprovados; lint e build aprovados;
 - nove conversas (sete do Codex, duas do Claude Code) exportadas de `~/.codex` e `~/.claude` para `vault/conversas/`, só com o diálogo, sem segredos nem e-mails pessoais, verificadas por varredura antes do commit.
+- token do Cloudflare R2 exposto na sessão revogado e substituído por `mosaico-media-railway-2`, cadastrado pelo painel do Railway; upload real em produção confirmou as chaves novas e o arquivo de teste foi removido do bucket.
