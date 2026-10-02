@@ -458,7 +458,7 @@ Antes do deploy e da entrega, o projeto ganhará uma área administrativa React 
 - setas no banner, preservando a rolagem horizontal por gesto;
 - catálogo geral e menus com paginação, ordenação e filtros de preço e frete;
 - ordenação por vendas baseada apenas em pedidos aprovados e por desconto promocional real;
-- cards redesenhados a partir da referência em `Prints`, com imagem alternativa no hover, estoque exato e alerta nas últimas cinco unidades;
+- cards redesenhados a partir da referência em `docs/referencias/interface/card-de-produto.jpg`, com imagem alternativa no hover, estoque exato e alerta nas últimas cinco unidades;
 - Home sem a seção redundante de categorias e com bloco editorial de posicionamento;
 - rodapé responsivo com navegação, conta, contexto da demonstração e formas de pagamento;
 - produto com condições comerciais, seletor de quantidade e compartilhamento;
@@ -501,7 +501,7 @@ Antes do deploy e da entrega, o projeto ganhará uma área administrativa React 
 ### Entregue
 
 - página de produto e resumo do carrinho diferenciam Pix em verde, cartão em roxo e entrega em azul;
-- valores à vista e parcelados ganharam maior peso visual, seguindo a referência em `Prints/exemplo detalhes pagamento.jfif`;
+- valores à vista e parcelados ganharam maior peso visual, seguindo a referência em `docs/referencias/interface/detalhes-de-pagamento.jpg`;
 - `ImportedProduct.primary_image_url` centraliza a prioridade da primeira imagem de alta qualidade do DummyJSON;
 - thumbnail comprimida passou a ser somente fallback;
 - cards, galeria, carrinho, banners gerados e snapshots de novos pedidos usam a imagem principal de maior qualidade;
@@ -541,7 +541,7 @@ Antes do deploy e da entrega, o projeto ganhará uma área administrativa React 
 
 ### Entregue
 
-- bloco da página de produto reorganizado conforme `Prints/exemplo detalhes pagamento.jfif`;
+- bloco da página de produto reorganizado conforme `docs/referencias/interface/detalhes-de-pagamento.jpg`;
 - desconto percentual, moeda e preço aparecem na mesma linha, com centavos elevados;
 - preço anterior tachado e indicador informativo aparecem logo abaixo;
 - parcelamento sem juros usa o destaque verde da referência e informa o total parcelado;
@@ -652,7 +652,7 @@ Antes do deploy e da entrega, o projeto ganhará uma área administrativa React 
 
 ### Entregue
 
-- tabelas do painel aproximadas da referência em `Prints/exemplo tabela e coluna de ações.jpeg`, com cabeçalhos compactos em caixa alta, linhas mais arejadas, status discretos e paginação numérica;
+- tabelas do painel aproximadas da referência em `docs/referencias/interface/tabela-e-coluna-de-acoes.jpg`, com cabeçalhos compactos em caixa alta, linhas mais arejadas, status discretos e paginação numérica;
 - coluna de ações de anúncios, menus e banners convertida para ícones consistentes: lápis azul para edição e pausa laranja ou reprodução verde para status;
 - rótulos acessíveis, foco visível e `title` preservados nos botões de ícone;
 - exclusão vermelha da referência não foi introduzida, pois a operação comercial do painel usa desativação reversível e não oferece exclusão;
@@ -704,7 +704,7 @@ O checkout já atualizava o nome da conta em compras seguintes (`services.py`), 
 - `sync_products` passou a importar somente o nicho por padrão, com filtro redundante após a normalização e contagem de ignorados;
 - `import_products` ganhou `--all-categories` para o catálogo inteiro e `--remover-fora-do-nicho` para apagar apenas produtos sem anúncio;
 - painel informa as categorias lidas e quantos itens ficaram fora do nicho;
-- `AdminSelect`: listbox acessível com rótulo acima, painel destacado, divisórias entre opções e opção escolhida realçada, conforme `Prints/exemplo dropdown.jfif`;
+- `AdminSelect`: listbox acessível com rótulo acima, painel destacado, divisórias entre opções e opção escolhida realçada, conforme `docs/referencias/interface/dropdown.jpg`;
 - todos os seletores nativos do painel foram substituídos; nenhum `<select>` permanece no projeto;
 - `AdminModal` e `AdminConfirmModal`: diálogos com `aria-modal`, foco inicial, ciclo de Tab preso, Escape, clique no fundo e devolução do foco ao elemento de origem;
 - editores de anúncio, menu e banner e as confirmações de ativar/desativar passaram a acontecer em modal, no lugar do painel embutido e da confirmação em linha.
@@ -1016,3 +1016,4 @@ A importação já trazia só o nicho desde a mudança anterior, mas o responsá
 - 120 testes backend e 57 frontend aprovados; lint e build aprovados;
 - nove conversas (sete do Codex, duas do Claude Code) exportadas de `~/.codex` e `~/.claude` para `vault/conversas/`, só com o diálogo, sem segredos nem e-mails pessoais, verificadas por varredura antes do commit.
 - token do Cloudflare R2 exposto na sessão revogado e substituído por `mosaico-media-railway-2`, cadastrado pelo painel do Railway; upload real em produção confirmou as chaves novas e o arquivo de teste foi removido do bucket.
+- imagens de referência de interface movidas de `Prints/` para `docs/referencias/interface/`, com nomes sem espaços nem acentos e extensão `.jpg`; referências do vault atualizadas e índice criado em `docs/referencias/README.md`.

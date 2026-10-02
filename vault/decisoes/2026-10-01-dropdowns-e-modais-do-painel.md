@@ -2,7 +2,7 @@
 
 ## Contexto
 
-O responsável pediu que todos os dropdowns seguissem `Prints/exemplo dropdown.jfif` e que as ações da tabela abrissem um modal. O painel usava `<select>` nativos, um editor embutido que empurrava a tabela para baixo e uma confirmação em linha dentro da célula de ações.
+O responsável pediu que todos os dropdowns seguissem `docs/referencias/interface/dropdown.jpg` e que as ações da tabela abrissem um modal. O painel usava `<select>` nativos, um editor embutido que empurrava a tabela para baixo e uma confirmação em linha dentro da célula de ações.
 
 ## Decisão
 
